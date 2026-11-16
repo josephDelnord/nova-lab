@@ -1,0 +1,219 @@
+---
+# TP1: Variables communes à tous les environnements
+# Ces variables sont appliquées à tous les groupes
+
+# ============================================
+# Configuration générale
+# ============================================
+project_name: "nova-lab"
+project_version: "1.0.0"
+domain: "novalab.local"
+
+# ============================================
+# Configuration système
+# ============================================
+timezone: "Europe/Paris"
+locale: "en_US.UTF-8"
+
+# Paquets système de base
+system_packages:
+  - curl
+  - wget
+  - git
+  - unzip
+  - htop
+  - net-tools
+  - iotop
+  - iftop
+  - vim
+  - nano
+  - tmux
+  - tree
+  - jq
+  - yq
+  - make
+  - build-essential
+  - software-properties-common
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+
+# ============================================
+# Configuration réseau
+# ============================================
+network:
+  cidr: "192.168.56.0/24"
+  gateway: "192.168.56.1"
+  
+# DNS
+resolv_conf:
+  nameservers:
+    - "8.8.8.8"
+    - "8.8.4.4"
+  search_domains:
+    - "novalab.local"
+    - "local"
+
+# ============================================
+# Configuration SSH
+# ============================================
+ssh:
+  port: 22
+  permitted_roots: true
+  password_authentication: false
+  pubkey_authentication: true
+  
+# Clés SSH autorisées (seront ajoutées via Ansible)
+ssh_authorized_keys:
+  - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ..."  # À remplacer par la clé publique réelle
+
+# ============================================
+# Configuration utilisateur
+# ============================================
+admin_user: vagrant
+admin_group: vagrant
+admin_shell: /bin/bash
+admin_home: /home/{{ admin_user }}
+
+# Utilisateurs supplémentaires à créer
+additional_users: []
+
+# ============================================
+# Configuration Docker
+# ============================================
+docker:
+  enabled: true
+  version: latest
+  install_from: docker-ce
+  
+  # Configuration du daemon
+  daemon:
+    log_driver: json-file
+    log_opts:
+      max-size: "10m"
+      max-file: "3"
+    
+    # Réseau
+    bip: "172.17.0.1/16"
+    default_address_pools:
+      - base: "192.168.0.0/16"
+        size: 24
+
+# ============================================
+# Configuration Kubernetes (k3s)
+# ============================================
+kubernetes:
+  enabled: true
+  distribution: k3s
+  version: "v1.28.5+k3s1"
+  
+  # Configuration k3s
+  k3s:
+    # Pour les serveurs
+    server:
+      cluster_init: true
+      tls_san:
+        - "127.0.0.1"
+        - "localhost"
+        - "{{ inventory_hostname }}"
+      disable:
+        - traefik
+        - servicelb
+      
+    # Pour les agents
+    agent: {}
+    
+    # Configuration réseau
+    flannel_iface: eth1
+    node_ip: "{{ ansible_default_ipv4.address }}"
+
+# ============================================
+# Configuration Helm
+# ============================================
+helm:
+  enabled: true
+  version: v3.14.0
+  
+  # Répositories Helm
+  repositories:
+    - name: bitnami
+      url: https://charts.bitnami.com/bitnami
+    - name: ingress-nginx
+      url: https://kubernetes.github.io/ingress-nginx
+    - name: prometheus-community
+      url: https://prometheus-community.github.io/helm-charts
+
+# ============================================
+# Configuration de sécurité
+# ============================================
+security:
+  # Firewall
+  ufw:
+    enabled: true
+    default_policy: DENY
+    
+    # Règles autorisées
+    allowed_ports:
+      - 22    # SSH
+      - 80    # HTTP
+      - 443   # HTTPS
+      - 6443  # Kubernetes API
+      - 2379  # etcd
+      - 2380  # etcd
+      - 10250 # Kubelet API
+      - 10251 # kube-scheduler
+      - 10252 # kube-controller-manager
+      - 8472  # Flannel VXLAN (UDP)
+    
+  # Fail2Ban
+  fail2ban:
+    enabled: true
+    bantime: 3600
+    findtime: 600
+    maxretry: 5
+
+# ============================================
+# Configuration de monitoring
+# ============================================
+monitoring:
+  enabled: false  # Désactivé par défaut, activé en prod
+  
+  # Si activé
+  prometheus:
+    enabled: true
+    version: v2.47.0
+    
+  grafana:
+    enabled: true
+    version: v10.2.0
+    admin_password: "{{ vault_admin_password }}"
+
+# ============================================
+# Configuration de logging
+# ============================================
+logging:
+  # Rotation des logs
+  logrotate:
+    enabled: true
+    
+    # Configuration par défaut
+    default:
+      rotate: 7
+      daily: true
+      missingok: true
+      notifempty: true
+      create: true
+      compress: true
+      delaycompress: true
+
+# ============================================
+# Configuration NTP
+# ============================================
+ntp:
+  enabled: true
+  servers:
+    - "0.pool.ntp.org"
+    - "1.pool.ntp.org"
+    - "2.pool.ntp.org"
+    - "3.pool.ntp.org"

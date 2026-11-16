@@ -1,0 +1,306 @@
+---
+# TP6: Valeurs par défaut pour le chart nova-hello
+# Ces valeurs peuvent être écrasées par les fichiers values-preprod.yaml et values-prod.yaml
+
+# ============================================
+# Configuration de l'application
+# ============================================
+nameOverride: ""
+fullnameOverride: ""
+
+app:
+  name: nova-hello
+  version: "1.0.0"
+  
+  # Configuration du conteneur
+  image:
+    repository: nginx
+    tag: "1.25"
+    pullPolicy: IfNotPresent
+    
+  # Port du conteneur
+  containerPort: 80
+  
+  # Commande et arguments
+  command: []
+  args: []
+  
+  # Variables d'environnement
+  env: {}
+  
+  # Secrets comme variables d'environnement
+  envFromSecrets: []
+  
+  # Configuration du security context
+  securityContext:
+    runAsNonRoot: false
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    
+  # Ressources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ============================================
+# Configuration du déploiement
+# ============================================
+deployment:
+  enabled: true
+  
+  # Nombre de réplicas
+  replicaCount: 1
+  
+  # Stratégie de mise à jour
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  
+  # Timeout pour le démarrage des pods
+  progressDeadlineSeconds: 600
+  
+  # Configuration du revision history
+  revisionHistoryLimit: 10
+
+# ============================================
+# Configuration du Service
+# ============================================
+service:
+  enabled: true
+  
+  # Type de service
+  type: ClusterIP
+  
+  # Port du service
+  port: 80
+  
+  # Port cible (doit correspondre au port du conteneur)
+  targetPort: 80
+  
+  # Pour NodePort
+  nodePort: 30080
+  
+  # Sélecteur du service
+  selector: {}
+  
+  # Annotations du service
+  annotations: {}
+  
+  # Labels supplémentaires
+  labels: {}
+
+# ============================================
+# Configuration Ingress
+# ============================================
+ingress:
+  enabled: false
+  
+  # Classe de l'ingress
+  className: ""
+  
+  # Annotations de l'ingress
+  annotations: {}
+  
+  # Hosts
+  hosts: []
+  
+  # TLS
+  tls: []
+
+# ============================================
+# Configuration NetworkPolicy
+# ============================================
+networkPolicy:
+  enabled: false
+  
+  # Règles d'entrée
+  ingress: []
+  
+  # Règles de sortie
+  egress: []
+
+# ============================================
+# Configuration Auto-scaling
+# ============================================
+autoscaling:
+  enabled: false
+  
+  # Minimum de réplicas
+  minReplicas: 1
+  
+  # Maximum de réplicas
+  maxReplicas: 10
+  
+  # Cible d'utilisation CPU
+  targetCPUUtilizationPercentage: 80
+  
+  # Cible d'utilisation mémoire
+  targetMemoryUtilizationPercentage: 80
+  
+  # Période de stabilisation
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+      selectPolicy: Max
+
+# ============================================
+# Configuration PodDisruptionBudget
+# ============================================
+podDisruptionBudget:
+  enabled: false
+  
+  # Maximum de pods indisponibles
+  maxUnavailable: 1
+
+# ============================================
+# Configuration ConfigMap
+# ============================================
+configmap:
+  enabled: true
+  
+  # Nom du configmap
+  name: nova-hello-config
+  
+  # Données du configmap
+  data:
+    NODE_ENV: "production"
+    LOG_LEVEL: "info"
+    APP_NAME: "nova-hello"
+
+# ============================================
+# Configuration Secret
+# ============================================
+secret:
+  enabled: false
+  
+  # Nom du secret
+  name: nova-hello-secret
+  
+  # Type de secret
+  type: Opaque
+  
+  # Données du secret (à remplir avec helm-secrets ou Ansible Vault)
+  data: {}
+
+# ============================================
+# Configuration des sondes
+# ============================================
+probes:
+  liveness:
+    enabled: true
+    path: /
+    port: 80
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+    
+  readiness:
+    enabled: true
+    path: /
+    port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 1
+    successThreshold: 1
+    
+  startup:
+    enabled: false
+    path: /
+    port: 80
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+
+# ============================================
+# Configuration des labels
+# ============================================
+labels:
+  app: nova-hello
+  tier: backend
+  managed_by: helm
+
+# ============================================
+# Configuration des annotations
+# ============================================
+annotations: {}
+
+# ============================================
+# Configuration des selectors
+# ============================================
+selectorLabels: {}
+
+# ============================================
+# Configuration des Pods
+# ============================================
+pod:
+  # Labels supplémentaires pour les pods
+  labels: {}
+  
+  # Annotations supplémentaires pour les pods
+  annotations: {}
+  
+  # Affinity
+  affinity: {}
+  
+  # NodeSelector
+  nodeSelector: {}
+  
+  # Tolerations
+  tolerations: []
+  
+  # Topology Spread Constraints
+  topologySpreadConstraints: []
+  
+  # PriorityClassName
+  priorityClassName: ""
+
+# ============================================
+# Configuration du namespace
+# ============================================
+namespace:
+  # Créer le namespace si inexistant
+  create: false
+  
+  # Nom du namespace
+  name: ""
+
+# ============================================
+# Configuration des tests
+# ============================================
+tests:
+  enabled: true
+  
+  # Test de connexion HTTP
+  testConnection:
+    enabled: true
+    path: /
+    port: 80
+    expectedStatus: 200
+    expectedContent: "Hello"

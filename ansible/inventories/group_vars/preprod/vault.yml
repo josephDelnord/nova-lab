@@ -1,0 +1,142 @@
+---
+# TP14: Variables secrètes pour l'environnement preprod
+# Ce fichier doit être chiffré avec Ansible Vault
+# Commande pour chiffrer: ansible-vault encrypt vault.yml
+# Commande pour éditer: ansible-vault edit vault.yml
+
+# ============================================
+# Secrets de base de données
+# ============================================
+database:
+  host: "preprod-db.novalab.local"
+  port: 5432
+  name: "nova_hello_preprod"
+  user: "nova_user"
+  password: "{{ vault_db_password_preprod }}"  # À remplacer par une vraie valeur
+  
+  # Pour MySQL/MariaDB
+  mysql:
+    root_password: "{{ vault_mysql_root_password_preprod }}"
+  
+  # Pour PostgreSQL
+  postgres:
+    admin_password: "{{ vault_postgres_admin_password_preprod }}"
+
+# ============================================
+# Secrets Kubernetes
+# ============================================
+kubernetes:
+  # Token pour le dashboard Kubernetes
+  dashboard_token: "{{ vault_k8s_dashboard_token_preprod }}"
+  
+  # Token pour le service account
+  service_account_token: "{{ vault_k8s_sa_token_preprod }}"
+
+# ============================================
+# Secrets Helm
+# ============================================
+helm:
+  # Token pour les repositories privés
+  repo_token: "{{ vault_helm_repo_token_preprod }}"
+
+# ============================================
+# Secrets pour l'application
+# ============================================
+app:
+  # Clé secrète pour l'application
+  secret_key: "{{ vault_app_secret_key_preprod }}"
+  
+  # Token JWT
+  jwt_secret: "{{ vault_app_jwt_secret_preprod }}"
+  
+  # Clé API
+  api_key: "{{ vault_app_api_key_preprod }}"
+  
+  # Token pour les webhooks
+  webhook_token: "{{ vault_app_webhook_token_preprod }}"
+
+# ============================================
+# Secrets Docker Registry
+# ============================================
+docker:
+  registry:
+    url: "registry.example.com"
+    username: "{{ vault_docker_username_preprod }}"
+    password: "{{ vault_docker_password_preprod }}"
+    email: "admin@example.com"
+
+# ============================================
+# Secrets pour les services externes
+# ============================================
+external_services:
+  # AWS
+  aws:
+    access_key: "{{ vault_aws_access_key_preprod }}"
+    secret_key: "{{ vault_aws_secret_key_preprod }}"
+    region: "eu-west-1"
+  
+  # GitHub
+  github:
+    token: "{{ vault_github_token_preprod }}"
+    
+  # GitLab
+  gitlab:
+    token: "{{ vault_gitlab_token_preprod }}"
+
+# ============================================
+# Secrets de monitoring
+# ============================================
+monitoring:
+  prometheus:
+    basic_auth:
+      username: "{{ vault_prometheus_username_preprod }}"
+      password: "{{ vault_prometheus_password_preprod }}"
+    
+  grafana:
+    admin:
+      username: admin
+      password: "{{ vault_grafana_admin_password_preprod }}"
+      email: "admin@example.com"
+
+# ============================================
+# Certificats et clés
+# ============================================
+certificates:
+  # Clé privée SSL (à ne JAMAIS stocker en clair)
+  ssl:
+    private_key: "{{ vault_ssl_private_key_preprod }}"
+    certificate: "{{ vault_ssl_certificate_preprod }}"
+    
+  # Clé SSH pour l'accès aux nœuds
+  ssh:
+    private_key: "{{ vault_ssh_private_key_preprod }}"
+    public_key: "{{ vault_ssh_public_key_preprod }}"
+
+# ============================================
+# Variables de chiffrement
+# ============================================
+encryption:
+  # Clé pour le chiffrement des secrets
+  key: "{{ vault_encryption_key_preprod }}"
+  
+  # Sel pour le hachage
+  salt: "{{ vault_encryption_salt_preprod }}"
+
+# ============================================
+# Notes importantes
+# ============================================
+# Ce fichier contient des secrets sensibles. Il doit être:
+# 1. Chiffré avec Ansible Vault
+# 2. Exclus du contrôle de version (.gitignore)
+# 3. Accès restreint aux personnes autorisées
+# 4. Roté régulièrement (voir scripts/rotate-token.sh)
+#
+# Pour chiffrer ce fichier:
+#   ansible-vault encrypt ansible/inventories/group_vars/preprod/vault.yml
+#
+# Pour éditer ce fichier:
+#   ansible-vault edit ansible/inventories/group_vars/preprod/vault.yml
+#
+# Pour utiliser ce fichier dans un playbook:
+#   vars_files:
+#     - inventories/group_vars/preprod/vault.yml

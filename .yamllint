@@ -1,0 +1,58 @@
+# Configuration pour yamllint
+# https://yamllint.readthedocs.io/
+
+# Étendre la configuration par défaut
+extends: default
+
+# Règles
+rules:
+  # Indentation
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+    
+  # Longueur des lignes (désactivé pour les fichiers Ansible)
+  line-length:
+    max: 120
+    level: warning
+    
+  # Espaces autour des deux-points
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: 1
+    
+  # Commentaires
+  comments:
+    require-starting-space: true
+    ignore-shebangs: true
+    min-spaces-from-content: 1
+    
+  # Documents
+  document-start: false  # Ne pas exiger --- au début
+  document-end: false    # Ne pas exiger ... à la fin
+  
+  # Vérification des truthy/falsy
+  truthy:
+    allowed-values: [true, false]
+    
+  # Guillemets
+  quotes:
+    required: only-when-needed
+    extra-allowed: ["]
+    
+  # Trailing spaces
+  trailing-spaces:
+    level: error
+    
+  # Empty lines
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 0
+
+# Fichiers à ignorer
+ignore:
+  - "*.tfvars"
+  - "*.json"
+  - ".vagrant/*"
+  - "*.lock"

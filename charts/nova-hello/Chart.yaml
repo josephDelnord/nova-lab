@@ -1,0 +1,72 @@
+apiVersion: v2
+# TP6: Chart Helm pour l'application nova-hello
+name: nova-hello
+# Description du chart
+description: |
+  Une application simple "Hello World" déployée sur Kubernetes.
+  Ce chart est utilisé dans le cadre du projet nova-lab pour démontrer
+  le déploiement d'applications avec Helm et Ansible.
+
+# Type de chart (application ou library)
+type: application
+
+# Version du chart (suivre la sémantique de versioning)
+# MAJOR.MINOR.PATCH
+version: 0.1.0
+
+# Version de l'application
+appVersion: "1.0.0"
+
+# Métadonnées
+home: https://github.com/example/nova-hello
+sources:
+  - https://github.com/example/nova-hello
+maintainers:
+  - name: Jean Dupont
+    email: jean.dupont@example.com
+    url: https://github.com/jeandupont
+
+# Dépendances (optionnel)
+dependencies:
+  # Exemple: si vous utilisez ingress-nginx comme dépendance
+  # - name: ingress-nginx
+  #   version: "4.0.13"
+  #   repository: "https://kubernetes.github.io/ingress-nginx"
+  #   condition: ingress.enabled
+
+# Icône du chart (optionnel)
+icon: https://example.com/path/to/icon.png
+
+# Mots-clés (optionnel)
+keywords:
+  - kubernetes
+  - helm
+  - demo
+  - tutorial
+
+# Licence (optionnel)
+license: Apache-2.0
+
+# Déprécié (optionnel)
+# deprecated: true
+
+# Annotations (optionnel)
+annotations:
+  "artifacthub.io/license": Apache-2.0
+  "artifacthub.io/links": |
+    - name: Documentation
+      url: https://github.com/example/nova-hello
+    - name: Support
+      url: https://github.com/example/nova-hello/issues
+  "artifacthub.io/maintainers": |
+    - name: Jean Dupont
+      email: jean.dupont@example.com
+  "artifacthub.io/provider": |
+    name: Example Inc.
+  "artifacthub.io/recommendations": |
+    - url: https://artifacthub.io/packages/helm/bitnami/nginx
+  "artifacthub.io/images": |
+    - name: nginx
+      image: docker.io/library/nginx:1.25
+  "artifacthub.io/operator": false
+  "artifacthub.io/prerelease": false

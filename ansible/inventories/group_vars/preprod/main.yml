@@ -1,0 +1,190 @@
+---
+# TP1: Variables spécifiques à l'environnement preprod
+# Héritent des variables communes dans all/main.yml
+
+# ============================================
+# Configuration de l'environnement
+# ============================================
+environment: preprod
+k8s_context: preprod
+
+# ============================================
+# Configuration de l'application
+# ============================================
+app:
+  name: nova-hello
+  version: "1.0.0-dev"
+  replica_count: 2
+  image: nginx:1.25
+  image_pull_policy: IfNotPresent
+  
+  # Ports
+  container_port: 8080
+  service_port: 80
+  target_port: 8080
+  
+  # Configuration du déploiement
+  strategy:
+    type: RollingUpdate
+    rolling_update:
+      max_surge: 1
+      max_unavailable: 0
+  
+  # Ressources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Liveness et Readiness probes
+  liveness_probe:
+    enabled: true
+    path: /
+    port: 8080
+    initial_delay_seconds: 30
+    period_seconds: 10
+    timeout_seconds: 5
+    failure_threshold: 3
+    success_threshold: 1
+  
+  readiness_probe:
+    enabled: true
+    path: /
+    port: 8080
+    initial_delay_seconds: 5
+    period_seconds: 5
+    timeout_seconds: 2
+    failure_threshold: 1
+    success_threshold: 1
+  
+  # Auto-scaling
+  autoscaling:
+    enabled: false
+
+# ============================================
+# Configuration Ingress
+# ============================================
+ingress:
+  enabled: true
+  class_name: "nginx"
+  
+  hosts:
+    - host: preprod.novalab.local
+      paths:
+        - path: /
+          path_type: Prefix
+          service_name: {{ app.name }}
+          service_port: {{ app.service_port }}
+  
+  # TLS (optionnel pour preprod)
+  tls:
+    enabled: false
+    # secret_name: preprod-tls
+    # hosts:
+    #   - preprod.novalab.local
+
+# ============================================
+# Configuration Service
+# ============================================
+service:
+  type: ClusterIP
+  # type: NodePort  # Alternative pour accès direct
+  port: 80
+  target_port: 8080
+  
+  # Pour NodePort
+  node_port: 30080
+
+# ============================================
+# Configuration NetworkPolicy
+# ============================================
+network_policy:
+  enabled: true
+  
+  # Autoriser le trafic depuis le contrôleur
+  ingress:
+    - from:
+        - pod_selector:
+            match_labels:
+              app: nova-hello
+        - ip_block:
+            cidr: 192.168.56.0/24
+      ports:
+        - protocol: TCP
+          port: {{ app.container_port }}
+
+# ============================================
+# Configuration Docker
+# ============================================
+docker:
+  registry: docker.io
+  repository: library/nginx
+  tag: "1.25"
+
+# ============================================
+# Configuration Kubernetes
+# ============================================
+kubernetes:
+  namespace: nova-hello-preprod
+  
+  # Labels supplémentaires
+  labels:
+    environment: preprod
+    tier: backend
+    managed_by: terraform
+
+# ============================================
+# Configuration du logging
+# ============================================
+logging:
+  level: debug
+
+# ============================================
+# Configuration de sécurité
+# ============================================
+security:
+  # Niveau de sécurité
+  level: medium
+  
+  # Autoriser le shell root dans les pods (pour le debug)
+  allow_root: true
+  
+  # Configuration Pod Security
+  pod_security:
+    run_as_non_root: false
+    read_only_root_filesystem: false
+    privileged: false
+
+# ============================================
+# Configuration de monitoring
+# ============================================
+monitoring:
+  enabled: false  # Désactivé en preprod par défaut
+
+# ============================================
+# Variables spécifiques aux nœuds
+# ============================================
+nodes:
+  preprod:
+    ip: 192.168.56.20
+    hostname: preprod.novalab.local
+    role: worker
+    
+  # Liste de tous les nœuds preprod
+  all:
+    - 192.168.56.20
+
+# ============================================
+# Configuration Ansible
+# ============================================
+ansible:
+  # Variables spécifiques à Ansible
+  become: true
+  become_method: sudo
+  become_user: root
+  
+  # Gestion des erreurs
+  any_errors_fatal: false

@@ -1,0 +1,19 @@
+{{- if .Values.configmap.enabled -}}
+---
+# TP6: ConfigMap pour l'application nova-hello
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nova-hello.configmap.name" . | default (include "nova-hello.fullname" .) }}
+  labels:
+    {{- include "nova-hello.labels" . | nindent 4 }}
+  {{- with .Values.configmap.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{- range $key, $value := .Values.configmap.data }}
+  {{ $key }}: |-
+    {{- tpl $value $ | nindent 4 }}
+  {{- end }}
+{{- end -}}

@@ -1,0 +1,609 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Schema de validation pour les valeurs du chart nova-hello",
+  "description": "Ce schéma valide la structure et les types des valeurs utilisées dans le chart nova-hello.",
+  "type": "object",
+  "required": [],
+  "properties": {
+    "nameOverride": {
+      "type": "string",
+      "description": "Remplace partiellement le nom généré par le chart",
+      "default": ""
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Remplace complètement le nom généré par le chart",
+      "default": ""
+    },
+    "app": {
+      "type": "object",
+      "description": "Configuration de l'application",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Nom de l'application",
+          "default": "nova-hello"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version de l'application",
+          "default": "1.0.0"
+        },
+        "image": {
+          "type": "object",
+          "description": "Configuration de l'image du conteneur",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "description": "Repository Docker de l'image",
+              "default": "nginx"
+            },
+            "tag": {
+              "type": "string",
+              "description": "Tag de l'image",
+              "default": "1.25"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "description": "Politique de pull de l'image",
+              "default": "IfNotPresent"
+            }
+          },
+          "required": ["repository", "tag"]
+        },
+        "containerPort": {
+          "type": "integer",
+          "description": "Port du conteneur",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 80
+        },
+        "resources": {
+          "type": "object",
+          "description": "Ressources du conteneur",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "description": "Ressources requises",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "description": "CPU requis",
+                  "default": "100m"
+                },
+                "memory": {
+                  "type": "string",
+                  "description": "Mémoire requise",
+                  "default": "128Mi"
+                }
+              }
+            },
+            "limits": {
+              "type": "object",
+              "description": "Limites de ressources",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "description": "Limite CPU",
+                  "default": "500m"
+                },
+                "memory": {
+                  "type": "string",
+                  "description": "Limite mémoire",
+                  "default": "512Mi"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "description": "Configuration du déploiement",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer le déploiement",
+          "default": true
+        },
+        "replicaCount": {
+          "type": "integer",
+          "description": "Nombre de réplicas",
+          "minimum": 1,
+          "default": 1
+        },
+        "strategy": {
+          "type": "object",
+          "description": "Stratégie de mise à jour",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["RollingUpdate", "Recreate"],
+              "description": "Type de stratégie",
+              "default": "RollingUpdate"
+            },
+            "rollingUpdate": {
+              "type": "object",
+              "description": "Configuration RollingUpdate",
+              "properties": {
+                "maxSurge": {
+                  "type": ["string", "integer"],
+                  "description": "Maximum de pods en surplus",
+                  "default": "25%"
+                },
+                "maxUnavailable": {
+                  "type": ["string", "integer"],
+                  "description": "Maximum de pods indisponibles",
+                  "default": "25%"
+                }
+              }
+            }
+          }
+        },
+        "progressDeadlineSeconds": {
+          "type": "integer",
+          "description": "Timeout pour le déploiement",
+          "minimum": 0,
+          "default": 600
+        },
+        "revisionHistoryLimit": {
+          "type": "integer",
+          "description": "Nombre de révisions à conserver",
+          "minimum": 0,
+          "default": 10
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "description": "Configuration du service",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer le service",
+          "default": true
+        },
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"],
+          "description": "Type de service",
+          "default": "ClusterIP"
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port du service",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 80
+        },
+        "targetPort": {
+          "type": ["integer", "string"],
+          "description": "Port cible",
+          "default": 80
+        },
+        "nodePort": {
+          "type": "integer",
+          "description": "Port NodePort",
+          "minimum": 30000,
+          "maximum": 32767,
+          "default": 30080
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "description": "Configuration de l'ingress",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer l'ingress",
+          "default": false
+        },
+        "className": {
+          "type": "string",
+          "description": "Classe de l'ingress controller",
+          "default": ""
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations de l'ingress",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "hosts": {
+          "type": "array",
+          "description": "Liste des hôtes",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string",
+                "description": "Nom d'hôte"
+              },
+              "paths": {
+                "type": "array",
+                "description": "Liste des chemins",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "description": "Chemin"
+                    },
+                    "pathType": {
+                      "type": "string",
+                      "enum": ["Prefix", "Exact", "ImplementationSpecific"],
+                      "description": "Type de chemin"
+                    },
+                    "serviceName": {
+                      "type": "string",
+                      "description": "Nom du service"
+                    },
+                    "servicePort": {
+                      "type": ["integer", "string"],
+                      "description": "Port du service"
+                    }
+                  },
+                  "required": ["path"]
+                }
+              }
+            },
+            "required": ["host"]
+          }
+        },
+        "tls": {
+          "type": "array",
+          "description": "Configuration TLS",
+          "items": {
+            "type": "object",
+            "properties": {
+              "secretName": {
+                "type": "string",
+                "description": "Nom du secret TLS"
+              },
+              "hosts": {
+                "type": "array",
+                "description": "Liste des hôtes TLS",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["secretName", "hosts"]
+          }
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "description": "Configuration NetworkPolicy",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer NetworkPolicy",
+          "default": false
+        },
+        "ingress": {
+          "type": "array",
+          "description": "Règles d'entrée",
+          "items": {
+            "type": "object"
+          }
+        },
+        "egress": {
+          "type": "array",
+          "description": "Règles de sortie",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "description": "Configuration Auto-scaling",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer Auto-scaling",
+          "default": false
+        },
+        "minReplicas": {
+          "type": "integer",
+          "description": "Minimum de réplicas",
+          "minimum": 1,
+          "default": 1
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "description": "Maximum de réplicas",
+          "minimum": 1,
+          "default": 10
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "description": "Cible d'utilisation CPU",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 80
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer",
+          "description": "Cible d'utilisation mémoire",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 80
+        },
+        "behavior": {
+          "type": "object",
+          "description": "Comportement de scaling",
+          "properties": {
+            "scaleDown": {
+              "type": "object",
+              "description": "Comportement de downscale"
+            },
+            "scaleUp": {
+              "type": "object",
+              "description": "Comportement d'upscale"
+            }
+          }
+        }
+      }
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "description": "Configuration PodDisruptionBudget",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer PodDisruptionBudget",
+          "default": false
+        },
+        "maxUnavailable": {
+          "type": ["integer", "string"],
+          "description": "Maximum de pods indisponibles"
+        }
+      }
+    },
+    "configmap": {
+      "type": "object",
+      "description": "Configuration ConfigMap",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer ConfigMap",
+          "default": true
+        },
+        "name": {
+          "type": "string",
+          "description": "Nom du ConfigMap"
+        },
+        "data": {
+          "type": "object",
+          "description": "Données du ConfigMap",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "secret": {
+      "type": "object",
+      "description": "Configuration Secret",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer Secret",
+          "default": false
+        },
+        "name": {
+          "type": "string",
+          "description": "Nom du Secret"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type de Secret",
+          "default": "Opaque"
+        },
+        "data": {
+          "type": "object",
+          "description": "Données du Secret",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "probes": {
+      "type": "object",
+      "description": "Configuration des sondes",
+      "properties": {
+        "liveness": {
+          "type": "object",
+          "description": "Configuration Liveness Probe",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Activer Liveness Probe",
+              "default": true
+            },
+            "path": {
+              "type": "string",
+              "description": "Chemin pour la sonde"
+            },
+            "port": {
+              "type": ["integer", "string"],
+              "description": "Port pour la sonde"
+            },
+            "initialDelaySeconds": {
+              "type": "integer",
+              "description": "Délai initial",
+              "minimum": 0,
+              "default": 30
+            },
+            "periodSeconds": {
+              "type": "integer",
+              "description": "Période entre les vérifications",
+              "minimum": 0,
+              "default": 10
+            },
+            "timeoutSeconds": {
+              "type": "integer",
+              "description": "Timeout",
+              "minimum": 0,
+              "default": 5
+            },
+            "failureThreshold": {
+              "type": "integer",
+              "description": "Seuil d'échec",
+              "minimum": 1,
+              "default": 3
+            },
+            "successThreshold": {
+              "type": "integer",
+              "description": "Seuil de succès",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        },
+        "readiness": {
+          "type": "object",
+          "description": "Configuration Readiness Probe"
+        },
+        "startup": {
+          "type": "object",
+          "description": "Configuration Startup Probe"
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "description": "Labels du chart",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "annotations": {
+      "type": "object",
+      "description": "Annotations du chart",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "selectorLabels": {
+      "type": "object",
+      "description": "Labels pour le sélecteur",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "pod": {
+      "type": "object",
+      "description": "Configuration des Pods",
+      "properties": {
+        "labels": {
+          "type": "object",
+          "description": "Labels supplémentaires pour les pods",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations supplémentaires pour les pods",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "affinity": {
+          "type": "object",
+          "description": "Affinity des pods"
+        },
+        "nodeSelector": {
+          "type": "object",
+          "description": "NodeSelector pour les pods",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "tolerations": {
+          "type": "array",
+          "description": "Tolerations pour les pods",
+          "items": {
+            "type": "object"
+          }
+        },
+        "topologySpreadConstraints": {
+          "type": "array",
+          "description": "Topology Spread Constraints",
+          "items": {
+            "type": "object"
+          }
+        },
+        "priorityClassName": {
+          "type": "string",
+          "description": "PriorityClassName"
+        }
+      }
+    },
+    "namespace": {
+      "type": "object",
+      "description": "Configuration du namespace",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Créer le namespace si inexistant",
+          "default": false
+        },
+        "name": {
+          "type": "string",
+          "description": "Nom du namespace"
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "description": "Configuration des tests",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activer les tests",
+          "default": true
+        },
+        "testConnection": {
+          "type": "object",
+          "description": "Test de connexion",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Activer le test de connexion",
+              "default": true
+            },
+            "path": {
+              "type": "string",
+              "description": "Chemin pour le test"
+            },
+            "port": {
+              "type": ["integer", "string"],
+              "description": "Port pour le test"
+            },
+            "expectedStatus": {
+              "type": "integer",
+              "description": "Status HTTP attendu",
+              "default": 200
+            },
+            "expectedContent": {
+              "type": "string",
+              "description": "Contenu attendu"
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
