@@ -1,0 +1,64 @@
+---
+# Playbook principal pour orchestrer tous les autres playbooks
+# Exécutez ce playbook pour appliquer toute la configuration
+
+- name: Apply complete nova-lab configuration
+  hosts: all
+  gather_facts: no
+  
+  tasks:
+    - name: Display site playbook header
+      debug:
+        msg: |
+          ==========================================
+          NOVA-LAB: Orchestration complète
+          ==========================================
+          Ce playbook exécute tous les playbooks
+          dans le bon ordre pour configurer
+          l'infrastructure complète.
+          
+          Environnements disponibles:
+          - ctrl: Machine de contrôle
+          - preprod: Environnement de préproduction
+          - prod: Environnement de production
+          
+          ==========================================
+
+    - name: Include baseline configuration
+      include_playbook: baseline.yml
+      when: baseline_enabled | default(true)
+
+    - name: Include cluster configuration
+      include_playbook: cluster.yml
+      when: cluster_enabled | default(true)
+
+    - name: Include hardening configuration
+      include_playbook: harden.yml
+      when: hardening_enabled | default(true)
+
+    - name: Include deployment configuration
+      include_playbook: deploy.yml
+      when: deploy_enabled | default(true)
+      tags:
+        - deploy
+
+    - name: Include audit configuration
+      include_playbook: audit.yml
+      when: audit_enabled | default(false)
+      tags:
+        - audit
+
+    - name: Display completion message
+      debug:
+        msg: |
+          ==========================================
+          ✅ Configuration complète terminée !
+          ==========================================
+          
+          Pour vérifier:
+          1. Connexion aux VM: vagrant ssh ctrl/preprod/prod
+          2. Vérifier k3s: kubectl get nodes
+          3. Vérifier Helm: helm list --all-namespaces
+          4. Vérifier l'application: kubectl get pods -n nova-hello-preprod
+          
+          ==========================================

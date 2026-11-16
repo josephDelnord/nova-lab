@@ -1,0 +1,39 @@
+---
+# TP5: Variables pour le role k3s
+
+# ============================================
+# Variables Kubernetes
+# ============================================
+
+kubernetes:
+  enabled: true
+  distribution: k3s
+  version: "v1.28.5+k3s1"
+  
+  k3s:
+    server:
+      cluster_init: true
+      tls_san:
+        - "127.0.0.1"
+        - "localhost"
+        - "{{ inventory_hostname }}"
+      disable:
+        - traefik
+        - servicelb
+    
+    agent: {}
+    
+    flannel_iface: eth1
+    node_ip: "{{ ansible_default_ipv4.address }}"
+
+# ============================================
+# Variables Docker/containerd
+# ============================================
+
+docker:
+  enabled: true
+  
+containerd:
+  enabled: true
+  config:
+    SystemdCgroup: true

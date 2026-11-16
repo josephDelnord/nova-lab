@@ -1,0 +1,30 @@
+---
+# TP14: Role access - Gestion des accès et des autorisations
+# Ce role configure les accès SSH, les utilisateurs et les permissions
+
+# Import des variables par défaut
+defaults:
+  from: defaults/main.yml
+
+# Import des variables
+vars:
+  from: vars/main.yml
+
+# Dépendances
+dependencies:
+  - role: common
+
+tags:
+  - access
+  - ssh
+  - users
+  - permissions
+
+tasks:
+  - import_tasks: tasks/users.yml
+  - import_tasks: tasks/ssh.yml
+  - import_tasks: tasks/sudo.yml
+  - import_tasks: tasks/keys.yml
+
+handlers:
+  - import_tasks: handlers/main.yml

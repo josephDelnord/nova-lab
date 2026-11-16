@@ -1,0 +1,40 @@
+---
+# TP9-TP10: Déploiement de l'application
+
+- name: Display deployment header
+  debug:
+    msg: "🚀 Déploiement de l'application nova-hello sur {{ inventory_hostname }}"
+
+- name: Ensure namespaces exist
+  command: kubectl create namespace {{ item }}
+  register: namespace_result
+  failed_when: namespace_result.rc != 0 and "already exists" not in namespace_result.stderr
+  loop:
+    - nova-hello-preprod
+    - nova-hello-prod
+
+- name: Deploy to preprod
+  command: >
+    helm upgrade --install nova-hello ../../../charts/nova-hello \
+      -n nova-hello-preprod \
+      -f ../../../charts/nova-hello/values-preprod.yaml \
+      --atomic \
+      --wait \
+      --timeout 10m
+  when: deploy_preprod | default(true)
+  tags:
+    - preprod
+    - deploy
+
+- name: Deploy to prod
+  command: >
+    helm upgrade --install nova-hello ../../../charts/nova-hello \
+      -n nova-hello-prod \
+      -f ../../../charts/nova-hello/values-prod.yaml \
+      --atomic \
+      --wait \
+      --timeout 10m
+  when: deploy_prod | default(true)
+  tags:
+    - prod
+    - deploy

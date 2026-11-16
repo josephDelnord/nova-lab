@@ -1,51 +1,11 @@
-# EditorConfig est un format de fichier pour aider à définir
-# et à maintenir un style de codage cohérent entre
-# différents éditeurs et IDE.
-# https://editorconfig.org
-
 root = true
 
-# Style par défaut pour tous les fichiers
 [*]
-charset = utf-8
 end_of_line = lf
+insert_final_newline = true
 indent_style = space
 indent_size = 2
-insert_final_newline = true
 trim_trailing_whitespace = true
 
-# Fichiers YAML
-[*.{yml,yaml}]
-indent_size = 2
-
-# Fichiers JSON
-[*.json]
-indent_size = 2
-
-# Fichiers Terraform
-[*.tf]
-indent_size = 2
-
-# Fichiers Python
-[*.py]
-indent_size = 4
-
-# Fichiers Makefile
 [Makefile]
-indent_style = tab
-
-# Fichiers Shell
-[*.{sh,bash}]
-indent_size = 2
-
-# Fichiers Markdown
-[*.md]
-trim_trailing_whitespace = false
-
-# Fichiers HTML
-[*.html]
-indent_size = 2
-
-# Fichiers HCL (Terraform)
-[*.hcl]
-indent_size = 2
+indent_style = space

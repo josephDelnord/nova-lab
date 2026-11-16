@@ -1,0 +1,53 @@
+---
+# TP5: Tâches post-installation pour k3s
+
+- name: Display k3s post-installation header
+  debug:
+    msg: "☸️  Configuration post-installation de k3s sur {{ inventory_hostname }}"
+
+# ============================================
+# TP5: Installation de kubectl
+# ============================================
+
+- name: Download kubectl
+  get_url:
+    url: "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: 0755
+
+# ============================================
+# TP5: Installation de Helm
+# ============================================
+
+- name: Download Helm install script
+  get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get-helm.sh
+    mode: 0755
+
+- name: Run Helm install script
+  command: /tmp/get-helm.sh
+
+# ============================================
+# TP5: Vérification de l'installation
+# ============================================
+
+- name: Verify k3s installation
+  command: k3s kubectl get nodes
+  register: k3s_nodes
+  changed_when: false
+  when: is_controller
+
+- name: Show k3s nodes status
+  debug:
+    var: k3s_nodes.stdout_lines
+  when: is_controller
+
+- name: Verify kubectl configuration
+  command: kubectl cluster-info
+  register: cluster_info
+  changed_when: false
+
+- name: Show cluster info
+  debug:
+    var: cluster_info.stdout_lines

@@ -1,0 +1,281 @@
+---
+# TP12: Playbook d'audit de conformité pour nova-lab
+# Utilise Goss pour vérifier la conformité des nœuds
+
+- name: Perform compliance audit using Goss
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars_files:
+    - "../inventories/group_vars/all/main.yml"
+
+  tasks:
+    # ============================================
+    # TP12: Préparation de l'audit
+    # ============================================
+    
+    - name: Ensure Goss is installed
+      block:
+        - name: Download Goss binary
+          get_url:
+            url: https://github.com/aelsabbahy/goss/releases/download/v0.4.2/goss-linux-amd64
+            dest: /usr/local/bin/goss
+            mode: 0755
+
+        - name: Verify Goss installation
+          command: goss --version
+          register: goss_version
+          changed_when: false
+
+    # ============================================
+    # TP12: Exécution des tests Goss
+    # ============================================
+    
+    - name: Create temporary directory for Goss tests
+      tempfile:
+        state: directory
+        suffix: goss
+      register: goss_dir
+
+    - name: Copy Goss test files
+      copy:
+        src: "{{ playbook_dir }}/../../tests/goss/"
+        dest: "{{ goss_dir.path }}/"
+        remote_src: no
+      ignore_errors: yes
+
+    - name: Run Goss tests
+      command: goss -g {{ goss_dir.path }}/goss.yaml validate
+      register: goss_result
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Show Goss test results
+      debug:
+        msg: "{{ goss_result.stdout_lines | default(goss_result.stderr_lines) }}"
+
+    # ============================================
+    # TP12: Audit spécifique système
+    # ============================================
+    
+    - name: Check critical system files permissions
+      stat:
+        path: "{{ item.path }}"
+      register: file_stats
+      loop:
+        - { path: /etc/passwd, expected_mode: "0644" }
+        - { path: /etc/shadow, expected_mode: "0000" }
+        - { path: /etc/group, expected_mode: "0644" }
+        - { path: /etc/sudoers, expected_mode: "0440" }
+      changed_when: false
+
+    - name: Verify file permissions
+      debug:
+        msg: "✅ {{ item.path }} has correct permissions ({{ item.stat.mode }})"
+      when: item.stat.mode == item.expected_mode
+      loop: "{{ file_stats.results }}"
+      loop_control:
+        label: "{{ item.item.path }}"
+
+    - name: Alert on incorrect file permissions
+      debug:
+        msg: "❌ {{ item.item.path }} has incorrect permissions ({{ item.stat.mode }}, expected {{ item.item.expected_mode }})"
+      when: item.stat.mode != item.item.expected_mode
+      loop: "{{ file_stats.results }}"
+      loop_control:
+        label: "{{ item.item.path }}"
+
+    # ============================================
+    # TP12: Audit SSH
+    # ============================================
+    
+    - name: Check SSH configuration
+      command: sshd -T
+      register: ssh_config
+      changed_when: false
+
+    - name: Verify SSH security settings
+      debug:
+        msg: "✅ SSH security setting {{ item.key }} is set to {{ item.value }}"
+      when: ssh_config.stdout | regex_search(item.regex)
+      loop:
+        - { key: "PermitRootLogin", value: "no", regex: "^permitrootlogin no" }
+        - { key: "PasswordAuthentication", value: "no", regex: "^passwordauthentication no" }
+        - { key: "PubkeyAuthentication", value: "yes", regex: "^pubkeyauthentication yes" }
+        - { key: "MaxAuthTries", value: "3", regex: "^maxauthtries 3" }
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Alert on insecure SSH settings
+      debug:
+        msg: "❌ Insecure SSH setting: {{ item.key }} is not set to {{ item.value }}"
+      when: not (ssh_config.stdout | regex_search(item.regex))
+      loop:
+        - { key: "PermitRootLogin", value: "no", regex: "^permitrootlogin no" }
+        - { key: "PasswordAuthentication", value: "no", regex: "^passwordauthentication no" }
+      loop_control:
+        label: "{{ item.key }}"
+
+    # ============================================
+    # TP12: Audit des paquets installés
+    # ============================================
+    
+    - name: Check for unwanted packages
+      command: dpkg -l | grep -E "{{ item }}"
+      register: unwanted_packages
+      changed_when: false
+      ignore_errors: yes
+      loop:
+        - telnet
+        - ftp
+        - nis
+        - rsh-client
+        - rsh-server
+        - yp-tools
+        - lpd
+
+    - name: Alert on unwanted packages
+      debug:
+        msg: "❌ Unwanted package found: {{ item.item }}"
+      when: item.stdout != ""
+      loop: "{{ unwanted_packages.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    # ============================================
+    # TP12: Audit des services
+    # ============================================
+    
+    - name: Check for unwanted services
+      service_facts:
+      register: service_facts
+
+    - name: Alert on unwanted running services
+      debug:
+        msg: "❌ Unwanted service running: {{ item }}"
+      when: item in service_facts.ansible_facts.services and service_facts.ansible_facts.services[item].state == "running"
+      loop:
+        - avahi-daemon
+        - cups
+        - isc-dhcp-server
+        - slapd
+        - nfs-server
+        - rpcbind
+      loop_control:
+        label: "{{ item }}"
+
+    # ============================================
+    # TP12: Audit Docker (si installé)
+    # ============================================
+    
+    - name: Check Docker security configuration
+      block:
+        - name: Check Docker daemon configuration
+          command: cat /etc/docker/daemon.json
+          register: docker_daemon_config
+          changed_when: false
+          ignore_errors: yes
+
+        - name: Verify Docker security settings
+          debug:
+            msg: "✅ Docker security setting {{ item.key }} is configured"
+          when: docker_daemon_config.stdout | from_json | json_query(item.query) == item.expected
+          loop:
+            - { key: "userns-remap", query: "userns-remap", expected: "default" }
+            - { key: "no-new-privileges", query: "no-new-privileges", expected: true }
+            - { key: "live-restore", query: "live-restore", expected: true }
+          loop_control:
+            label: "{{ item.key }}"
+
+      when: docker.enabled
+
+    # ============================================
+    # TP12: Audit Kubernetes (si installé)
+    # ============================================
+    
+    - name: Check Kubernetes security configuration
+      block:
+        - name: Check kubelet configuration
+          command: cat /etc/rancher/k3s/config.yaml
+          register: k3s_config
+          changed_when: false
+          ignore_errors: yes
+
+        - name: Verify Kubernetes security settings
+          debug:
+            msg: "✅ Kubernetes security setting {{ item.key }} is configured"
+          when: k3s_config.stdout | regex_search(item.regex)
+          loop:
+            - { key: "disable-traefik", regex: "disable.*traefik" }
+            - { key: "disable-servicelb", regex: "disable.*servicelb" }
+          loop_control:
+            label: "{{ item.key }}"
+
+        - name: Check running pods
+          command: kubectl get pods --all-namespaces
+          register: running_pods
+          changed_when: false
+          ignore_errors: yes
+
+        - name: Show running pods
+          debug:
+            var: running_pods.stdout_lines
+
+      when: kubernetes.enabled
+
+    # ============================================
+    # TP12: Audit réseau
+    # ============================================
+    
+    - name: Check listening ports
+      command: ss -tuln
+      register: listening_ports
+      changed_when: false
+
+    - name: Alert on unexpected listening ports
+      debug:
+        msg: "⚠️  Unexpected listening port: {{ item }}"
+      when: >
+        (item | regex_search(":80\s") or 
+         item | regex_search(":443\s") or 
+         item | regex_search(":6443\s")) and 
+        not item | regex_search("127.0.0.1") and 
+        not item | regex_search("192.168.56")
+      loop: "{{ listening_ports.stdout_lines }}"
+      loop_control:
+        label: "{{ item | trunc(50) }}"
+
+    # ============================================
+    # TP12: Génération du rapport d'audit
+    # ============================================
+    
+    - name: Create audit report
+      copy:
+        content: |
+          # Rapport d'audit de conformité - {{ inventory_hostname }}
+          **Date:** {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+          **Environnement:** {{ environment | default('unknown') }}
+          
+          ## Résultats Goss
+          {{ goss_result.stdout | default('Non disponible') }}
+          
+          ## Vérifications personnalisées
+          
+          ### Permissions des fichiers
+          {{ file_stats.results | map(attribute='stat.mode') | list | to_nice_yaml }}
+          
+          ### Configuration SSH
+          {{ ssh_config.stdout_lines | to_nice_yaml }}
+          
+          ### Paquets installés
+          {{ service_facts.ansible_facts.packages | default({}) | dict2items | selectattr('key', 'defined') | list | to_nice_yaml }}
+          
+          ### Ports en écoute
+          {{ listening_ports.stdout_lines | to_nice_yaml }}
+        dest: /tmp/audit-report-{{ inventory_hostname }}-{{ ansible_date_time.iso8601 }}.md
+        mode: 0644
+
+    - name: Show audit report location
+      debug:
+        msg: "Rapport d'audit généré: /tmp/audit-report-{{ inventory_hostname }}-{{ ansible_date_time.iso8601 }}.md"

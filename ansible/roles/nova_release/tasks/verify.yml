@@ -1,0 +1,52 @@
+---
+# TP9-TP10: Vérification du déploiement
+
+- name: Verify preprod deployment
+  block:
+    - name: Check pods in preprod
+      command: kubectl get pods -n nova-hello-preprod
+      register: preprod_pods
+      changed_when: false
+
+    - name: Show preprod pods
+      debug:
+        var: preprod_pods.stdout_lines
+
+    - name: Check services in preprod
+      command: kubectl get svc -n nova-hello-preprod
+      register: preprod_svc
+      changed_when: false
+
+    - name: Show preprod services
+      debug:
+        var: preprod_svc.stdout_lines
+
+  when: verify_preprod | default(true)
+  tags:
+    - preprod
+    - verify
+
+- name: Verify prod deployment
+  block:
+    - name: Check pods in prod
+      command: kubectl get pods -n nova-hello-prod
+      register: prod_pods
+      changed_when: false
+
+    - name: Show prod pods
+      debug:
+        var: prod_pods.stdout_lines
+
+    - name: Check services in prod
+      command: kubectl get svc -n nova-hello-prod
+      register: prod_svc
+      changed_when: false
+
+    - name: Show prod services
+      debug:
+        var: prod_svc.stdout_lines
+
+  when: verify_prod | default(true)
+  tags:
+    - prod
+    - verify

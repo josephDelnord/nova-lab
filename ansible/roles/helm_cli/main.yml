@@ -1,0 +1,26 @@
+---
+# TP5: Role helm_cli - Installation et configuration de Helm CLI
+# Ce role installe Helm sur les machines de contrôle
+
+# Import des variables par défaut
+defaults:
+  from: defaults/main.yml
+
+# Import des variables
+vars:
+  from: vars/main.yml
+
+# Dépendances
+dependencies:
+  - role: common
+
+tags:
+  - helm
+  - cli
+  - deployment
+
+tasks:
+  - import_tasks: tasks/main.yml
+
+handlers:
+  - import_tasks: handlers/main.yml

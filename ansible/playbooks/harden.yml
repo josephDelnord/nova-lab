@@ -1,0 +1,264 @@
+---
+# TP11: Playbook de hardening pour nova-lab
+# Applique les bonnes pratiques de sécurité sur tous les nœuds
+
+- name: Apply hardening configuration
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars_files:
+    - "../inventories/group_vars/all/main.yml"
+
+  tasks:
+    # ============================================
+    # TP11: Hardening du système
+    # ============================================
+    
+    - name: Set restrictive file permissions on sensitive files
+      file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+        owner: root
+        group: root
+      loop:
+        - { path: /etc/passwd, mode: "0644" }
+        - { path: /etc/shadow, mode: "0000" }
+        - { path: /etc/group, mode: "0644" }
+        - { path: /etc/sudoers, mode: "0440" }
+        - { path: /etc/ssh/sshd_config, mode: "0600" }
+
+    - name: Set restrictive directory permissions
+      file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+        owner: root
+        group: root
+        state: directory
+        recurse: yes
+      loop:
+        - { path: /etc/ssl/private, mode: "0700" }
+        - { path: /etc/ssh, mode: "0700" }
+        - { path: /root, mode: "0700" }
+
+    # ============================================
+    # TP11: Hardening SSH
+    # ============================================
+    
+    - name: Apply strict SSH configuration
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        backup: yes
+        validate: "sshd -t -f %s"
+      loop:
+        - { regexp: "PermitRootLogin", line: "PermitRootLogin no" }
+        - { regexp: "PasswordAuthentication", line: "PasswordAuthentication no" }
+        - { regexp: "PubkeyAuthentication", line: "PubkeyAuthentication yes" }
+        - { regexp: "AuthorizedKeysFile", line: "AuthorizedKeysFile .ssh/authorized_keys" }
+        - { regexp: "MaxAuthTries", line: "MaxAuthTries 3" }
+        - { regexp: "LoginGraceTime", line: "LoginGraceTime 60" }
+        - { regexp: "ClientAliveInterval", line: "ClientAliveInterval 300" }
+        - { regexp: "ClientAliveCountMax", line: "ClientAliveCountMax 2" }
+        - { regexp: "X11Forwarding", line: "X11Forwarding no" }
+        - { regexp: "AllowTcpForwarding", line: "AllowTcpForwarding no" }
+        - { regexp: "AllowAgentForwarding", line: "AllowAgentForwarding no" }
+        - { regexp: "PermitEmptyPasswords", line: "PermitEmptyPasswords no" }
+        - { regexp: "ChallengeResponseAuthentication", line: "ChallengeResponseAuthentication no" }
+        - { regexp: "UsePAM", line: "UsePAM yes" }
+      notify: Restart SSH
+
+    - name: Disable SSH for all users except admin
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        line: "AllowUsers {{ admin_user }}"
+        state: present
+        backup: yes
+        validate: "sshd -t -f %s"
+      when: security.level == "high"
+      notify: Restart SSH
+
+    # ============================================
+    # TP11: Hardening du kernel
+    # ============================================
+    
+    - name: Configure kernel parameters for security
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        # Désactiver IP forwarding (sauf si nécessaire)
+        - { name: "net.ipv4.ip_forward", value: "0" }
+        - { name: "net.ipv6.conf.all.forwarding", value: "0" }
+        
+        # Désactiver ICMP redirects
+        - { name: "net.ipv4.conf.all.accept_redirects", value: "0" }
+        - { name: "net.ipv4.conf.all.send_redirects", value: "0" }
+        - { name: "net.ipv4.conf.default.accept_redirects", value: "0" }
+        
+        # Désactiver source routing
+        - { name: "net.ipv4.conf.all.accept_source_route", value: "0" }
+        - { name: "net.ipv4.conf.default.accept_source_route", value: "0" }
+        
+        # Activer SYN flood protection
+        - { name: "net.ipv4.tcp_syncookies", value: "1" }
+        
+        # Désactiver IPv6 si non utilisé
+        - { name: "net.ipv6.conf.all.disable_ipv6", value: "1" }
+      when: security.level in ["medium", "high"]
+
+    # ============================================
+    # TP11: Hardening des services
+    # ============================================
+    
+    - name: Disable unused services
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - avahi-daemon
+        - cups
+        - isc-dhcp-server
+        - isc-dhcp-server6
+        - slapd
+        - nfs-server
+        - rpcbind
+        - telnetd
+        - tftpd
+        - xinetd
+      ignore_errors: yes
+
+    # ============================================
+    # TP11: Configuration du firewall
+    # ============================================
+    
+    - name: Configure UFW with strict rules
+      block:
+        - name: Set default policies
+          ufw:
+            direction: incoming
+            policy: deny
+
+        - name: Set default outgoing policy
+          ufw:
+            direction: outgoing
+            policy: allow
+
+        - name: Allow only necessary ports
+          ufw:
+            rule: allow
+            port: "{{ item.port }}"
+            proto: "{{ item.proto | default('tcp') }}"
+          loop:
+            - { port: "{{ ssh.port }}", proto: "tcp" }
+            - { port: "80", proto: "tcp" }
+            - { port: "443", proto: "tcp" }
+            - { port: "6443", proto: "tcp" }  # Kubernetes API
+
+        - name: Allow established connections
+          ufw:
+            rule: allow
+            direction: incoming
+            proto: all
+            state: ESTABLISHED,RELATED
+
+        - name: Enable UFW
+          ufw:
+            state: enabled
+
+      when: security.ufw.enabled
+
+    # ============================================
+    # TP11: Hardening Docker
+    # ============================================
+    
+    - name: Configure Docker daemon securely
+      template:
+        src: templates/docker-daemon.json.j2
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: docker
+        mode: 0640
+      notify: Restart Docker
+      when: docker.enabled
+
+    # ============================================
+    # TP11: Hardening Kubernetes
+    # ============================================
+    
+    - name: Configure Kubernetes with security best practices
+      block:
+        - name: Create Pod Security Admission configuration
+          template:
+            src: templates/pss-config.yaml.j2
+            dest: /etc/kubernetes/pod-security-config.yaml
+            owner: root
+            group: root
+            mode: 0644
+
+        - name: Enable Pod Security Admission
+          lineinfile:
+            path: /etc/rancher/k3s/config.yaml
+            line: "kube-apiserver-arg: enable-admission-plugins=PodSecurity"
+            state: present
+          when: is_controller
+          notify: Restart k3s
+
+      when: kubernetes.enabled
+
+    # ============================================
+    # TP11: Configuration du logging
+    # ============================================
+    
+    - name: Configure log rotation
+      template:
+        src: templates/logrotate.conf.j2
+        dest: /etc/logrotate.d/nova-hello
+        owner: root
+        group: root
+        mode: 0644
+      when: logging.logrotate.enabled
+
+    # ============================================
+    # TP11: Audit et monitoring
+    # ============================================
+    
+    - name: Install auditd
+      apt:
+        name: auditd
+        state: present
+
+    - name: Configure auditd rules
+      template:
+        src: templates/auditd.rules.j2
+        dest: /etc/audit/rules.d/nova-hello.rules
+        owner: root
+        group: root
+        mode: 0640
+      notify: Restart auditd
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: sshd
+        state: restarted
+
+    - name: Restart Docker
+      service:
+        name: docker
+        state: restarted
+
+    - name: Restart k3s
+      service:
+        name: k3s
+        state: restarted
+
+    - name: Restart auditd
+      service:
+        name: auditd
+        state: restarted

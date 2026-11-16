@@ -1,0 +1,53 @@
+---
+# TP5: Tâches de pré-installation pour k3s
+
+- name: Display k3s pre-installation header
+  debug:
+    msg: "☸️  Préparation de l'installation de k3s sur {{ inventory_hostname }}"
+
+# ============================================
+# TP5: Désactiver le swap
+# ============================================
+
+- name: Check if swap is enabled
+  command: swapon --show
+  register: swap_info
+  changed_when: false
+  failed_when: false
+
+- name: Disable current swap
+  command: swapoff -a
+  when: swap_info.stdout != ""
+
+- name: Remove swap from fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\s)swap(\s.*?)$'
+    replace: '#\1swap\2'
+
+# ============================================
+# TP5: Charger les modules kernel
+# ============================================
+
+- name: Load required kernel modules
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+
+# ============================================
+# TP5: Configurer les paramètres kernel
+# ============================================
+
+- name: Configure kernel parameters for k3s
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+    - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+    - { name: "net.ipv4.ip_forward", value: "1" }

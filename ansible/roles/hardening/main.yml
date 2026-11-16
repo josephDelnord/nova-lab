@@ -1,0 +1,32 @@
+---
+# TP11: Role hardening - Application des bonnes pratiques de sécurité
+# Ce role applique le hardening sur tous les nœuds
+
+# Import des variables par défaut
+defaults:
+  from: defaults/main.yml
+
+# Import des variables
+vars:
+  from: vars/main.yml
+
+# Dépendances
+dependencies:
+  - role: common
+
+tags:
+  - hardening
+  - security
+
+tasks:
+  - import_tasks: tasks/system.yml
+  - import_tasks: tasks/ssh.yml
+  - import_tasks: tasks/kernel.yml
+  - import_tasks: tasks/services.yml
+  - import_tasks: tasks/firewall.yml
+  - import_tasks: tasks/docker.yml
+  - import_tasks: tasks/kubernetes.yml
+  - import_tasks: tasks/audit.yml
+
+handlers:
+  - import_tasks: handlers/main.yml

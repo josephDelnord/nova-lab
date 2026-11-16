@@ -1,0 +1,24 @@
+---
+# TP9-TP10: Rollback du déploiement
+
+- name: Rollback preprod deployment
+  command: >
+    helm rollback nova-hello 1 \
+      -n nova-hello-preprod \
+      --wait \
+      --timeout 5m
+  when: rollback_preprod | default(false)
+  tags:
+    - preprod
+    - rollback
+
+- name: Rollback prod deployment
+  command: >
+    helm rollback nova-hello 1 \
+      -n nova-hello-prod \
+      --wait \
+      --timeout 5m
+  when: rollback_prod | default(false)
+  tags:
+    - prod
+    - rollback

@@ -1,0 +1,173 @@
+---
+# TP5: Playbook pour la configuration du cluster Kubernetes (k3s)
+# Ce playbook installe et configure k3s sur tous les nœuds
+
+- name: Configure Kubernetes cluster with k3s
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars_files:
+    - "../inventories/group_vars/all/main.yml"
+
+  tasks:
+    # ============================================
+    # TP5: Préparation des nœuds
+    # ============================================
+    
+    - name: Disable swap permanently
+      block:
+        - name: Disable current swap
+          command: swapoff -a
+          when: ansible_swaptotal_mb > 0
+
+        - name: Remove swap from fstab
+          replace:
+            path: /etc/fstab
+            regexp: '^([^#].*?\s)swap(\s.*?)$'
+            replace: '#\1swap\2'
+
+    - name: Load required kernel modules
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Configure kernel parameters for k3s
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+        - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { name: "net.ipv4.ip_forward", value: "1" }
+
+    # ============================================
+    # TP5: Installation de containerd
+    # ============================================
+    
+    - name: Install containerd
+      block:
+        - name: Add Docker GPG key
+          apt_key:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            state: present
+
+        - name: Add Docker repository
+          apt_repository:
+            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+            state: present
+            update_cache: yes
+
+        - name: Install containerd
+          apt:
+            name: containerd.io
+            state: present
+
+        - name: Create containerd configuration directory
+          file:
+            path: /etc/containerd
+            state: directory
+            mode: 0755
+
+        - name: Generate default containerd config
+          command: containerd config default
+          register: containerd_config
+
+        - name: Write containerd config
+          copy:
+            content: "{{ containerd_config.stdout | from_json | to_nice_json }}"
+            dest: /etc/containerd/config.toml
+            owner: root
+            group: root
+            mode: 0644
+
+        - name: Enable SystemdCgroup in containerd config
+          replace:
+            path: /etc/containerd/config.toml
+            regexp: 'SystemdCgroup = false'
+            replace: 'SystemdCgroup = true'
+
+        - name: Restart containerd
+          service:
+            name: containerd
+            state: restarted
+            enabled: yes
+
+    # ============================================
+    # TP5: Installation de k3s
+    # ============================================
+    
+    - name: Download k3s install script
+      get_url:
+        url: https://get.k3s.io
+        dest: /tmp/install-k3s.sh
+        mode: 0755
+
+    - name: Install k3s on controller nodes
+      command: /tmp/install-k3s.sh server --cluster-init --tls-san {{ inventory_hostname }} --node-name {{ inventory_hostname }} --disable traefik
+      args:
+        creates: /etc/rancher/k3s/k3s.yaml
+      when: is_controller
+      notify: Wait for k3s server to be ready
+
+    - name: Install k3s on worker nodes
+      command: /tmp/install-k3s.sh agent --server https://{{ groups['ctrl'] | first }}:6443 --node-name {{ inventory_hostname }}
+      args:
+        creates: /etc/rancher/k3s/k3s.yaml
+      when: not is_controller
+
+    - name: Configure kubectl for admin user
+      block:
+        - name: Create .kube directory
+          file:
+            path: /home/{{ admin_user }}/.kube
+            state: directory
+            owner: "{{ admin_user }}"
+            group: "{{ admin_group }}"
+            mode: 0700
+
+        - name: Copy kubeconfig
+          copy:
+            src: /etc/rancher/k3s/k3s.yaml
+            dest: /home/{{ admin_user }}/.kube/config
+            owner: "{{ admin_user }}"
+            group: "{{ admin_group }}"
+            mode: 0600
+            remote_src: yes
+
+        - name: Replace localhost with controller IP in kubeconfig
+          replace:
+            path: /home/{{ admin_user }}/.kube/config
+            regexp: '127.0.0.1'
+            replace: "{{ groups['ctrl'] | first | default('192.168.56.10') }}"
+
+    - name: Install kubectl
+      block:
+        - name: Download kubectl
+          get_url:
+            url: "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            dest: /usr/local/bin/kubectl
+            mode: 0755
+
+    - name: Install Helm
+      block:
+        - name: Download Helm install script
+          get_url:
+            url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+            dest: /tmp/get-helm.sh
+            mode: 0755
+
+        - name: Run Helm install script
+          command: /tmp/get-helm.sh
+
+  handlers:
+    - name: Wait for k3s server to be ready
+      command: k3s kubectl wait --for=condition=Ready nodes --all --timeout=300s
+      become: yes
+      become_user: "{{ admin_user }}"
+      when: is_controller

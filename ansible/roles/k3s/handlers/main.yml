@@ -1,0 +1,8 @@
+---
+# TP5: Handlers pour le role k3s
+
+- name: Wait for k3s server to be ready
+  command: k3s kubectl wait --for=condition=Ready nodes --all --timeout=300s
+  become: yes
+  become_user: "{{ admin_user }}"
+  when: is_controller

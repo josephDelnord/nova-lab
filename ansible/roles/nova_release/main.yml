@@ -1,0 +1,29 @@
+---
+# TP9-TP10: Role nova_release - Déploiement de l'application via Helm
+# Ce role utilise Ansible pour piloter Helm et déployer l'application nova-hello
+
+# Import des variables par défaut
+defaults:
+  from: defaults/main.yml
+
+# Import des variables
+vars:
+  from: vars/main.yml
+
+# Dépendances
+dependencies:
+  - role: helm_cli
+
+tags:
+  - nova
+  - release
+  - deploy
+  - helm
+
+tasks:
+  - import_tasks: tasks/deploy.yml
+  - import_tasks: tasks/rollback.yml
+  - import_tasks: tasks/verify.yml
+
+handlers:
+  - import_tasks: handlers/main.yml

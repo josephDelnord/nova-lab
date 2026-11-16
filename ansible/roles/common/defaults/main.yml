@@ -1,0 +1,69 @@
+---
+# TP3: Variables par défaut pour le role common
+# Ces valeurs peuvent être écrasées dans les playbooks ou inventories
+
+# ============================================
+# Variables système
+# ============================================
+
+# Paquets système à installer
+system_packages: []
+
+# ============================================
+# Variables utilisateur
+# ============================================
+
+admin_user: "vagrant"
+admin_group: "vagrant"
+admin_shell: "/bin/bash"
+admin_home: "/home/{{ admin_user }}"
+
+# ============================================
+# Variables SSH
+# ============================================
+
+ssh:
+  port: 22
+
+# ============================================
+# Variables NTP
+# ============================================
+
+ntp:
+  enabled: true
+
+# ============================================
+# Variables sécurité
+# ============================================
+
+security:
+  ufw:
+    enabled: true
+    default_policy: "DENY"
+  
+  fail2ban:
+    enabled: true
+    bantime: 3600
+    findtime: 600
+    maxretry: 5
+
+# ============================================
+# Variables réseau
+# ============================================
+
+resolv_conf: {}
+
+# ============================================
+# Variables locale
+# ============================================
+
+locale: "en_US.UTF-8"
+timezone: "UTC"
+
+# ============================================
+# Variables logging
+# ============================================
+
+logging:
+  logrotate:
+    enabled: true
