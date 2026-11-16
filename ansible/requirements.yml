@@ -1,39 +1,8 @@
 ---
-# TP1: Collections Ansible requises pour nova-lab
-# Ces collections sont utilisées dans les différents playbooks
-
 collections:
-  # Collections officielles Ansible
-  - name: community.general
-    version: ">=6.0.0"
-    
-  - name: community.crypto
-    version: ">=2.0.0"
-    
   - name: ansible.posix
-    version: ">=1.5.0"
-    
-  - name: community.docker
-    version: ">=3.0.0"
-    
-  # Collections pour Kubernetes
-  - name: community.kubernetes
-    version: ">=3.0.0"
-    
-  # Collections pour le cloud (optionnel, selon votre infrastructure)
-  - name: amazon.aws
-    version: ">=5.0.0"
-    
-  - name: azure.azcollection
-    version: ">=2.0.0"
-    
-  # Collections pour la gestion de conteneurs
-  - name: containers.podman
-    version: ">=1.0.0"
-    
-  # Collections pour la validation de conformité
-  - name: ansible.utils
-    version: ">=4.0.0"
-
-# Pour installer ces collections, exécutez :
-# ansible-galaxy collection install -r requirements.yml
+    version: ">=1.5.0,<3.0.0"
+  - name: community.general
+    version: ">=9.0.0,<11.0.0"
+  - name: kubernetes.core
+    version: ">=5.0.0,<6.0.0"
