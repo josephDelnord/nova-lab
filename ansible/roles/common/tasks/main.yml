@@ -1,261 +1,47 @@
 ---
-# TP3: Tâches principales du role common
-# Configuration système de base
+- name: Mettre à jour le cache APT
+  ansible.builtin.apt:
+    lock_timeout: 120
+    update_cache: true
+    cache_valid_time: 3600
 
-- name: Include OS-specific variables
-  include_vars: "{{ item }}"
-  with_first_found:
-    - "{{ ansible_distribution }}_{{ ansible_distribution_major_version }}.yml"
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
-    - "default.yml"
-
-- name: Display common role header
-  debug:
-    msg: "📦 Application de la configuration commune sur {{ inventory_hostname }}"
-
-# ============================================
-# TP3: Configuration système
-# ============================================
-
-- name: Ensure system packages are installed
-  apt:
-    name: "{{ system_packages }}"
+- name: Installer les paquets de base
+  ansible.builtin.apt:
+    lock_timeout: 120
+    name: "{{ common_packages }}"
     state: present
-    update_cache: yes
-  when: ansible_os_family == "Debian"
-  tags:
-    - packages
-    - system
 
-- name: Configure timezone
-  timezone:
-    name: "{{ timezone }}"
-  tags:
-    - timezone
-    - system
+- name: Fixer le fuseau horaire
+  community.general.timezone:
+    name: "{{ common_timezone }}"
 
-- name: Configure locale
-  locale_gen:
-    name: "{{ locale }}"
-    state: present
-  tags:
-    - locale
-    - system
-
-- name: Set default locale
-  lineinfile:
-    path: /etc/default/locale
-    regexp: '^LANG='
-    line: 'LANG={{ locale }}'
-    state: present
-  tags:
-    - locale
-    - system
-
-# ============================================
-# TP3: Configuration utilisateur
-# ============================================
-
-- name: Ensure admin user exists
-  user:
-    name: "{{ admin_user }}"
-    state: present
-    groups: "{{ admin_group }}"
-    shell: "{{ admin_shell }}"
-    home: "{{ admin_home }}"
-    create_home: yes
-  tags:
-    - user
-    - system
-
-- name: Ensure admin group exists
-  group:
-    name: "{{ admin_group }}"
-    state: present
-  tags:
-    - user
-    - system
-
-# ============================================
-# TP3: Configuration SSH
-# ============================================
-
-- name: Ensure .ssh directory exists for admin user
-  file:
-    path: "{{ admin_home }}/.ssh"
+- name: S'assurer que le dossier de configuration chrony existe
+  ansible.builtin.file:
+    path: /etc/chrony/conf.d
     state: directory
-    owner: "{{ admin_user }}"
-    group: "{{ admin_group }}"
-    mode: 0700
-  tags:
-    - ssh
-    - security
-
-- name: Configure SSH client settings
-  template:
-    src: ssh_config.j2
-    dest: "{{ admin_home }}/.ssh/config"
-    owner: "{{ admin_user }}"
-    group: "{{ admin_group }}"
-    mode: 0600
-  tags:
-    - ssh
-    - security
-
-# ============================================
-# TP3: Configuration sudo
-# ============================================
-
-- name: Configure sudo for admin user
-  lineinfile:
-    path: /etc/sudoers
-    line: "{{ admin_user }} ALL=(ALL) NOPASSWD:ALL"
-    validate: "visudo -cf %s"
-    state: present
-  tags:
-    - sudo
-    - security
-
-# ============================================
-# TP3: Configuration réseau
-# ============================================
-
-- name: Configure DNS resolvers
-  template:
-    src: resolv.conf.j2
-    dest: /etc/resolv.conf
     owner: root
     group: root
-    mode: 0644
-  when: resolv_conf is defined
-  tags:
-    - network
-    - dns
+    mode: "0755"
 
-- name: Configure host file
-  lineinfile:
-    path: /etc/hosts
-    regexp: "^127\\.0\\.1\\.1"
-    line: "127.0.0.1 localhost {{ inventory_hostname }}"
-    state: present
-  tags:
-    - network
-    - hosts
-
-# ============================================
-# TP3: Configuration NTP
-# ============================================
-
-- name: Ensure NTP is installed
-  apt:
-    name: ntp
-    state: present
-  when: ntp.enabled
-  tags:
-    - ntp
-    - time
-
-- name: Configure NTP servers
-  template:
-    src: ntp.conf.j2
-    dest: /etc/ntp.conf
+- name: Configurer la source de temps (NTP)
+  ansible.builtin.template:
+    src: chrony-nova.conf.j2
+    dest: /etc/chrony/conf.d/nova.conf
     owner: root
     group: root
-    mode: 0644
-  notify: Restart NTP
-  when: ntp.enabled
-  tags:
-    - ntp
-    - time
+    mode: "0644"
+  notify: Redémarrer chrony
 
-# ============================================
-# TP3: Configuration Firewall
-# ============================================
+- name: S'assurer que chrony tourne et démarre au boot
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
 
-- name: Ensure UFW is installed
-  apt:
-    name: ufw
-    state: present
-  when: security.ufw.enabled
-  tags:
-    - firewall
-    - security
-
-- name: Set UFW default policies
-  ufw:
-    direction: incoming
-    policy: "{{ security.ufw.default_policy | default('DENY') | lower }}"
-  when: security.ufw.enabled
-  tags:
-    - firewall
-    - security
-
-- name: Set UFW outgoing policy
-  ufw:
-    direction: outgoing
-    policy: allow
-  when: security.ufw.enabled
-  tags:
-    - firewall
-    - security
-
-- name: Allow SSH through firewall
-  ufw:
-    rule: allow
-    port: "{{ ssh.port }}"
-    proto: tcp
-  when: security.ufw.enabled
-  tags:
-    - firewall
-    - security
-
-- name: Enable UFW
-  ufw:
-    state: enabled
-  when: security.ufw.enabled
-  tags:
-    - firewall
-    - security
-
-# ============================================
-# TP3: Configuration Fail2Ban
-# ============================================
-
-- name: Ensure Fail2Ban is installed
-  apt:
-    name: fail2ban
-    state: present
-  when: security.fail2ban.enabled
-  tags:
-    - fail2ban
-    - security
-
-- name: Configure Fail2Ban
-  template:
-    src: fail2ban.local.j2
-    dest: /etc/fail2ban/jail.local
+- name: Déposer la bannière d'accueil (motd)
+  ansible.builtin.template:
+    src: motd.j2
+    dest: /etc/motd
     owner: root
     group: root
-    mode: 0644
-  notify: Restart Fail2Ban
-  when: security.fail2ban.enabled
-  tags:
-    - fail2ban
-    - security
-
-# ============================================
-# TP3: Configuration logging
-# ============================================
-
-- name: Configure log rotation
-  template:
-    src: logrotate.conf.j2
-    dest: /etc/logrotate.d/nova-hello
-    owner: root
-    group: root
-    mode: 0644
-  when: logging.logrotate.enabled
-  tags:
-    - logging
-    - system
+    mode: "0644"

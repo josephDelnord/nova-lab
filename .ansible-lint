@@ -1,29 +1,14 @@
-# Configuration pour ansible-lint
-# https://ansible-lint.readthedocs.io/
+---
+profile: moderate
 
-# Fichiers à ignorer
-skip_list:
-  - "no-tabs"  # On utilise des espaces, pas des tabulations
-  - "trailing-whitespace"  # Géré par .editorconfig
-  
-# Règles personnalisées
-warn_list:
-  - "command-instead-of-module"  # Avertir sur l'utilisation de command au lieu de modules
-  - "deprecated-module"  # Avertir sur les modules obsolètes
-  
-# Exclusions de fichiers
 exclude_paths:
-  - tests/
-  - .vagrant/
-  - .git/
 
-# Règles spécifiques
-command-instead-of-shell:
-  enabled: true
-  
-# Options de formatage
-verbose: true
-quiet: false
+- .vagrant/
+- charts/
+- tests/
 
-# Fichiers à analyser
-# ansible-lint analysera tous les fichiers .yml dans le répertoire
+skip_list:
+
+# Les variables nova_* sont un CONTRAT d'inventaire partagé entre rôles (choix assumé, voir ADR-03)
+
+- var-naming[no-role-prefix]
