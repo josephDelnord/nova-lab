@@ -1,44 +1,14 @@
-{{- if .Values.service.enabled -}}
----
-# TP6: Service pour l'application nova-hello
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "nova-hello.service.name" . }}
+  name: {{ include "nova-hello.fullname" . }}
   labels:
     {{- include "nova-hello.labels" . | nindent 4 }}
-    {{- with .Values.service.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-  {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
-  type: {{ .Values.service.type }}
-  {{- if eq .Values.service.type "NodePort" }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
-      nodePort: {{ .Values.service.nodePort }}
-      protocol: TCP
-      name: http
-  {{- else if eq .Values.service.type "LoadBalancer" }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
-      protocol: TCP
-      name: http
-  {{- else }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
-      protocol: TCP
-      name: http
-  {{- end }}
+  type: ClusterIP
   selector:
     {{- include "nova-hello.selectorLabels" . | nindent 4 }}
-    {{- with .Values.service.selector }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-{{- end -}}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http

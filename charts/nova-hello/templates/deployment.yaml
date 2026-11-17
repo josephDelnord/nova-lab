@@ -1,155 +1,70 @@
-{{- if .Values.deployment.enabled -}}
----
-# TP6: Deployment pour l'application nova-hello
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "nova-hello.deployment.name" . }}
+  name: {{ include "nova-hello.fullname" . }}
   labels:
     {{- include "nova-hello.labels" . | nindent 4 }}
-    {{- with .Values.deployment.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
 spec:
-  replicas: {{ .Values.deployment.replicaCount }}
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       {{- include "nova-hello.selectorLabels" . | nindent 6 }}
-      {{- with .Values.deployment.selectorLabels }}
-      {{- toYaml . | nindent 6 }}
-      {{- end }}
-  strategy:
-    {{- toYaml .Values.deployment.strategy | nindent 4 }}
-  progressDeadlineSeconds: {{ .Values.deployment.progressDeadlineSeconds }}
-  revisionHistoryLimit: {{ .Values.deployment.revisionHistoryLimit }}
   template:
     metadata:
       labels:
         {{- include "nova-hello.selectorLabels" . | nindent 8 }}
-        {{- with .Values.pod.labels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
       annotations:
-        {{- with .Values.pod.annotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        # Si le contenu change, la somme change : le pod est recréé automatiquement.
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if .Values.secret.enabled }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.pod.priorityClassName }}
-      priorityClassName: {{ . | quote }}
-      {{- end }}
-      serviceAccountName: {{ include "nova-hello.serviceAccountName" . }}
-      {{- with .Values.pod.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.pod.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.pod.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.pod.topologySpreadConstraints }}
-      topologySpreadConstraints:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
-          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
-          {{- with .Values.app.command }}
-          command:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.app.args }}
-          args:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+        - name: web
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: {{ .Values.app.containerPort }}
-              name: http
-          {{- with .Values.app.env }}
+            - name: http
+              containerPort: 8080
           env:
-            {{- range $key, $value := . }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
-          {{- end }}
-          {{- with .Values.app.envFromSecrets }}
-          envFrom:
-            {{- range $secret := . }}
-            - secretRef:
-                name: {{ $secret | quote }}
-            {{- end }}
-          {{- end }}
-          {{- with .Values.app.securityContext }}
+            - name: API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nova-hello.secretName" . }}
+                  key: API_TOKEN
           securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.app.resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- if .Values.probes.liveness.enabled }}
-          livenessProbe:
-            httpGet:
-              path: {{ .Values.probes.liveness.path }}
-              port: {{ .Values.probes.liveness.port }}
-            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
-            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
-            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
-            successThreshold: {{ .Values.probes.liveness.successThreshold }}
-          {{- end }}
-          {{- if .Values.probes.readiness.enabled }}
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           readinessProbe:
-            httpGet:
-              path: {{ .Values.probes.readiness.path }}
-              port: {{ .Values.probes.readiness.port }}
-            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
-            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
-            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
-            successThreshold: {{ .Values.probes.readiness.successThreshold }}
-          {{- end }}
-          {{- if .Values.probes.startup.enabled }}
-          startupProbe:
-            httpGet:
-              path: {{ .Values.probes.startup.path }}
-              port: {{ .Values.probes.startup.port }}
-            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
-            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
-            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
-            successThreshold: {{ .Values.probes.startup.successThreshold }}
-          {{- end }}
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            {{- if .Values.configmap.enabled }}
-            - name: config-volume
-              mountPath: /etc/config
+            - name: html
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
               readOnly: true
-            {{- end }}
-            {{- if .Values.secret.enabled }}
-            - name: secret-volume
-              mountPath: /etc/secret
-              readOnly: true
-            {{- end }}
+            - name: tmp
+              mountPath: /tmp
       volumes:
-        {{- if .Values.configmap.enabled }}
-        - name: config-volume
+        - name: html
           configMap:
-            name: {{ include "nova-hello.fullname" . }}-config
-            defaultMode: 420
-        {{- end }}
-        {{- if .Values.secret.enabled }}
-        - name: secret-volume
-          secret:
-            secretName: {{ include "nova-hello.fullname" . }}-secret
-            defaultMode: 420
-        {{- end }}
-{{- end -}}
+            name: {{ include "nova-hello.fullname" . }}-html
+        - name: tmp
+          emptyDir: {}

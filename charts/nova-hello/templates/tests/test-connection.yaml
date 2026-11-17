@@ -1,33 +1,19 @@
-{{- if .Values.tests.enabled -}}
-{{- if .Values.tests.testConnection.enabled -}}
----
-# TP6: Test de connexion HTTP pour l'application nova-hello
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "nova-hello.fullname" . }}-test-connection"
+  name: "{{ include "nova-hello.fullname" . }}-test"
   labels:
     {{- include "nova-hello.labels" . | nindent 4 }}
-    helm.sh/chart: {{ include "nova-hello.chart" . }}
   annotations:
     "helm.sh/hook": test
-    "helm.sh/hook-delete-policy": before-hook-creation,after-hook-creation
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
-  containers:
-    - name: wget
-      image: busybox:latest
-      command: ["/bin/sh", "-c"]
-      args:
-        - wget -qO- http://{{ include "nova-hello.fullname" . }}:{{ .Values.service.port }}{{ .Values.tests.testConnection.path | default "/" }} | grep -q "{{ .Values.tests.testConnection.expectedContent | default "Hello" }}"
-      env:
-        - name: HOST
-          value: "{{ include "nova-hello.fullname" . }}"
-        - name: PORT
-          value: "{{ .Values.service.port }}"
-        - name: PATH
-          value: "{{ .Values.tests.testConnection.path | default "/" }}"
-        - name: EXPECTED_CONTENT
-          value: "{{ .Values.tests.testConnection.expectedContent | default "Hello" }}"
   restartPolicy: Never
-{{- end -}}
-{{- end -}}
+  containers:
+    - name: check
+      image: busybox:1.36
+      command: ["sh", "-c"]
+      args:
+        - |
+          wget -qO- http://{{ include "nova-hello.fullname" . }}:{{ .Values.service.port }}/ \
+            | grep -q "{{ .Values.app.environment }}"
