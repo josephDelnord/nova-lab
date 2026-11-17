@@ -1,299 +1,59 @@
 ---
-# TP1: Playbook de baseline pour nova-lab
-# Ce playbook configure les éléments de base sur tous les nœuds
-# (système, utilisateurs, sécurité, dépendances)
-
-- name: Apply baseline configuration to all nodes
-  hosts: all
-  become: yes
-  gather_facts: yes
-  
-  vars_files:
-    - "../inventories/group_vars/all/main.yml"
-
+- name: "Socle commun NOVA (version 1 : tâches directement dans le playbook)"
+  hosts: nova
+  become: true
+  vars:
+    baseline_packages: [curl, vim, htop, chrony, ca-certificates, python3-pip]
   tasks:
-    # ============================================
-    # TP1: Configuration système de base
-    # ============================================
-    
-    - name: Set hostname
-      hostname:
-        name: "{{ inventory_hostname }}"
-      when: inventory_hostname is defined
-
-    - name: Configure timezone
-      timezone:
-        name: "{{ timezone }}"
-
-    - name: Configure locale
-      locale_gen:
-        name: "{{ locale }}"
-        state: present
-
-    - name: Set default locale
-      lineinfile:
-        path: /etc/default/locale
-        regexp: '^LANG='
-        line: 'LANG={{ locale }}'
-        state: present
-
-    # ============================================
-    # TP1: Mise à jour du système
-    # ============================================
-    
-    - name: Update apt package index
-      apt:
-        update_cache: yes
+    - name: Mettre à jour le cache APT
+      ansible.builtin.apt:
+        lock_timeout: 120
+        update_cache: true
         cache_valid_time: 3600
 
-    - name: Upgrade all packages
-      apt:
-        upgrade: dist
-        autoremove: yes
-
-    # ============================================
-    # TP1: Installation des paquets système
-    # ============================================
-    
-    - name: Install required system packages
-      apt:
-        name: "{{ system_packages }}"
+    - name: Installer les paquets de base
+      ansible.builtin.apt:
+        lock_timeout: 120
+        name: "{{ baseline_packages }}"
         state: present
 
-    # ============================================
-    # TP1: Configuration du réseau
-    # ============================================
-    
-    - name: Configure DNS resolvers
-      template:
-        src: templates/resolv.conf.j2
-        dest: /etc/resolv.conf
+    - name: Fixer le fuseau horaire
+      community.general.timezone:
+        name: Europe/Paris
+
+    - name: S'assurer que le dossier de configuration chrony existe
+      ansible.builtin.file:
+        path: /etc/chrony/conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Configurer la source de temps (NTP)
+      ansible.builtin.copy:
+        dest: /etc/chrony/conf.d/nova.conf
+        content: "pool fr.pool.ntp.org iburst\n"
         owner: root
         group: root
-        mode: 0644
-      when: resolv_conf is defined
+        mode: "0644"
+      notify: Redémarrer chrony
 
-    # ============================================
-    # TP1: Configuration SSH
-    # ============================================
-    
-    - name: Configure SSH
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: "^#?{{ item.regexp }}"
-        line: "{{ item.line }}"
-        state: present
-        backup: yes
-        validate: "sshd -t -f %s"
-      loop:
-        - { regexp: "PermitRootLogin", line: "PermitRootLogin no" }
-        - { regexp: "PasswordAuthentication", line: "PasswordAuthentication no" }
-        - { regexp: "PubkeyAuthentication", line: "PubkeyAuthentication yes" }
-      notify: Restart SSH
+    - name: Chrony actif et démarré au boot
+      ansible.builtin.service:
+        name: chrony
+        state: started
+        enabled: true
 
-    - name: Ensure SSH directory exists
-      file:
-        path: /home/{{ admin_user }}/.ssh
-        state: directory
-        owner: "{{ admin_user }}"
-        group: "{{ admin_group }}"
-        mode: 0700
-
-    # ============================================
-    # TP1: Configuration des utilisateurs
-    # ============================================
-    
-    - name: Create additional users
-      user:
-        name: "{{ item.name }}"
-        state: present
-        groups: "{{ item.groups | default(omit) }}"
-        shell: "{{ item.shell | default('/bin/bash') }}"
-        system: "{{ item.system | default(false) }}"
-        create_home: "{{ item.create_home | default(true) }}"
-      loop: "{{ additional_users }}"
-      when: additional_users | length > 0
-
-    # ============================================
-    # TP1: Configuration Docker
-    # ============================================
-    
-    - name: Install Docker (if enabled)
-      block:
-        - name: Add Docker GPG key
-          apt_key:
-            url: https://download.docker.com/linux/ubuntu/gpg
-            state: present
-
-        - name: Add Docker repository
-          apt_repository:
-            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-            state: present
-            update_cache: yes
-
-        - name: Install Docker packages
-          apt:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-              - docker-compose-plugin
-            state: present
-
-        - name: Ensure Docker is running
-          service:
-            name: docker
-            state: started
-            enabled: yes
-
-        - name: Add admin user to docker group
-          user:
-            name: "{{ admin_user }}"
-            groups: docker
-            append: yes
-
-        - name: Configure Docker daemon
-          template:
-            src: templates/docker-daemon.json.j2
-            dest: /etc/docker/daemon.json
-            owner: root
-            group: root
-            mode: 0644
-          notify: Restart Docker
-          when: docker.daemon is defined
-
-      when: docker.enabled
-
-    # ============================================
-    # TP1: Configuration Kubernetes (k3s)
-    # ============================================
-    
-    - name: Install k3s (if enabled)
-      block:
-        - name: Ensure curl is installed
-          apt:
-            name: curl
-            state: present
-
-        - name: Download k3s install script
-          get_url:
-            url: https://get.k3s.io
-            dest: /tmp/install-k3s.sh
-            mode: 0755
-
-        - name: Install k3s server
-          command: /tmp/install-k3s.sh server --disable traefik --node-name {{ inventory_hostname }}
-          args:
-            creates: /etc/rancher/k3s/k3s.yaml
-          when: is_controller
-
-        - name: Install k3s agent
-          command: /tmp/install-k3s.sh agent --server https://{{ groups['ctrl'] | first }}:6443 --node-name {{ inventory_hostname }}
-          args:
-            creates: /etc/rancher/k3s/k3s.yaml
-          when: not is_controller
-
-        - name: Configure kubectl
-          copy:
-            src: /etc/rancher/k3s/k3s.yaml
-            dest: /home/{{ admin_user }}/.kube/config
-            owner: "{{ admin_user }}"
-            group: "{{ admin_group }}"
-            mode: 0600
-            remote_src: yes
-
-      when: kubernetes.enabled
-
-    # ============================================
-    # TP1: Configuration de sécurité
-    # ============================================
-    
-    - name: Configure UFW (Uncomplicated Firewall)
-      block:
-        - name: Install UFW
-          apt:
-            name: ufw
-            state: present
-
-        - name: Set UFW default policies
-          ufw:
-            direction: incoming
-            policy: {{ security.ufw.default_policy | default('DENY') | lower }}
-
-        - name: Set UFW default outgoing policy
-          ufw:
-            direction: outgoing
-            policy: allow
-
-        - name: Allow SSH
-          ufw:
-            rule: allow
-            port: "{{ ssh.port }}"
-            proto: tcp
-
-        - name: Enable UFW
-          ufw:
-            state: enabled
-
-      when: security.ufw.enabled
-
-    - name: Install and configure Fail2Ban
-      block:
-        - name: Install Fail2Ban
-          apt:
-            name: fail2ban
-            state: present
-
-        - name: Configure Fail2Ban
-          template:
-            src: templates/fail2ban.local.j2
-            dest: /etc/fail2ban/jail.local
-            owner: root
-            group: root
-            mode: 0644
-          notify: Restart Fail2Ban
-
-      when: security.fail2ban.enabled
-
-    # ============================================
-    # TP1: Configuration NTP
-    # ============================================
-    
-    - name: Install and configure NTP
-      block:
-        - name: Install NTP
-          apt:
-            name: ntp
-            state: present
-
-        - name: Configure NTP servers
-          template:
-            src: templates/ntp.conf.j2
-            dest: /etc/ntp.conf
-            owner: root
-            group: root
-            mode: 0644
-          notify: Restart NTP
-
-      when: ntp.enabled
+    - name: Déposer la bannière d'environnement
+      ansible.builtin.copy:
+        dest: /etc/motd
+        content: |
+          ===== NOVA : environnement {{ env_name | upper }} ({{ inventory_hostname }}) =====
+          Système géré par Ansible : toute modification manuelle sera écrasée.
+        owner: root
+        group: root
+        mode: "0644"
 
   handlers:
-    - name: Restart SSH
-      service:
-        name: sshd
-        state: restarted
-
-    - name: Restart Docker
-      service:
-        name: docker
-        state: restarted
-
-    - name: Restart Fail2Ban
-      service:
-        name: fail2ban
-        state: restarted
-
-    - name: Restart NTP
-      service:
-        name: ntp
+    - name: Redémarrer chrony
+      ansible.builtin.service:
+        name: chrony
         state: restarted
