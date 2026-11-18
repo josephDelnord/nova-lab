@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+# Valeurs du chart nova-hello, calculées depuis l'inventaire (une seule source de vérité).
+# Rendu par lookup('template') puis from_yaml : les entiers et booléens gardent leur TYPE (le schéma Helm l'exige).
+replicaCount: {{ nova_replicas | int }}
+image:
+  repository: "{{ nova_image_repository }}"
+  tag: "{{ nova_image_tag }}"
+app:
+  environment: "{{ env_name }}"
+  greeting: "{{ nova_greeting }}"
+  version: "{{ nova_app_version }}"
+ingress:
+  host: "{{ nova_hostname }}"
+networkPolicy:
+  enabled: {{ nova_network_policy | bool | lower }}
+secret:
+  apiToken: "{{ nova_api_token }}"

@@ -1,0 +1,7 @@
+---
+- name: Déployer NOVA Hello
+  hosts: nova
+  become: true
+  roles:
+    - role: nova_release
+      tags: [release]
