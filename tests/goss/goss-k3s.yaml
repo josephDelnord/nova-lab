@@ -27,7 +27,8 @@ command:
   readonly_rootfs:
     exec: "k3s kubectl -n nova get deploy nova-hello -o jsonpath='{.spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem}'"
     exit-status: 0
-    stdout: ["true"]{{ if eq .Vars.netpol "true" }}
+    stdout: ["true"]
+{{ if eq .Vars.netpol "true" }}
   # PSSI-08 : isolation reseau applicative exigee en production
   networkpolicy_present:
     exec: "k3s kubectl -n nova get networkpolicy nova-hello -o name"

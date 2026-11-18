@@ -7,13 +7,19 @@
     group: root
     mode: "0755"
 
-- name: Installer Goss {{ goss_version }}
+- name: Vérifier si Goss est déjà présent
+  ansible.builtin.stat:
+    path: /usr/local/bin/goss
+  register: goss_bin
+
+- name: "Installer Goss {{ goss_version }} (seulement si absent - l'audit ne dépend pas du réseau)"
   ansible.builtin.get_url:
     url: "https://github.com/goss-org/goss/releases/download/{{ goss_version }}/goss-linux-amd64"
     dest: /usr/local/bin/goss
     owner: root
     group: root
     mode: "0755"
+  when: not goss_bin.stat.exists
 
 - name: Déposer les spécifications de conformité
   ansible.builtin.copy:
