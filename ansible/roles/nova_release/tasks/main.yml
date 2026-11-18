@@ -16,21 +16,62 @@
     mode: "0644"
     directory_mode: "0755"
 
-- name: Déployer ou mettre à jour la release Helm
-  kubernetes.core.helm:
-    name: "{{ nova_release_name }}"
-    chart_ref: "{{ nova_chart_dest }}"
-    release_namespace: "{{ nova_namespace }}"
-    create_namespace: true
-    kubeconfig: "{{ nova_kubeconfig }}"
-    wait: true                            # attend que les pods soient prêts
-    wait_timeout: 3m
-    atomic: true                          # annule seul en cas d'échec
-    values: "{{ lookup('ansible.builtin.template', 'values.yaml.j2') | from_yaml }}"   # <-- LE POINT DE JONCTION : inventaire -> valeurs Helm
-  register: nova_helm_result
-  no_log: "{{ not (nova_show_diff | default(false) | bool) }}"   # masque le secret ET le diff ; -e nova_show_diff=true pour relire un diff en --check
+- name: Déploiement protégé (release + smoke test + rollback automatique)
+  block:
+    - name: Déployer ou mettre à jour la release Helm
+      kubernetes.core.helm:
+        name: "{{ nova_release_name }}"
+        chart_ref: "{{ nova_chart_dest }}"
+        release_namespace: "{{ nova_namespace }}"
+        create_namespace: true
+        kubeconfig: "{{ nova_kubeconfig }}"
+        wait: true
+        wait_timeout: 3m
+        atomic: true
+        values: "{{ lookup('ansible.builtin.template', 'values.yaml.j2') | from_yaml }}"   # types préservés (entiers, booléens)
+      register: nova_helm_result
+      no_log: "{{ not (nova_show_diff | default(false) | bool) }}"   # masque secret et diff ; -e nova_show_diff=true pour relire un diff --check
 
-- name: Afficher la révision déployée
-  ansible.builtin.debug:
-    msg: "{{ nova_release_name }} en révision {{ nova_helm_result.status.revision | default('(simulation --check : rien déployé)') }} sur {{ env_name }}"
-  when: nova_helm_result.status is defined
+    - name: Afficher la révision déployée
+      ansible.builtin.debug:
+        msg: "{{ nova_release_name }} en révision {{ nova_helm_result.status.revision | default('(simulation --check : rien déployé)') }} sur {{ env_name }}"
+      when: nova_helm_result.status is defined
+
+    - name: Smoke test HTTP depuis le poste de contrôle
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname].ansible_host }}/"
+        headers:
+          Host: "{{ nova_hostname }}"
+        return_content: true
+        status_code: 200
+      register: nova_smoke
+      delegate_to: localhost
+      become: false
+      retries: 10
+      delay: 6
+      until: nova_smoke.status == 200 and (nova_smoke_expect in nova_smoke.content)
+      changed_when: false
+
+  rescue:
+    - name: Lire l'état courant de la release
+      kubernetes.core.helm_info:
+        name: "{{ nova_release_name }}"
+        release_namespace: "{{ nova_namespace }}"
+        kubeconfig: "{{ nova_kubeconfig }}"
+      register: nova_info
+
+    - name: Rollback vers la révision précédente (seulement si Helm a réussi mais le test a échoué)
+      ansible.builtin.command: >-
+        helm rollback {{ nova_release_name }} {{ (nova_info.status.revision | int) - 1 }}
+        --namespace {{ nova_namespace }} --wait --timeout 3m
+      environment:
+        KUBECONFIG: "{{ nova_kubeconfig }}"
+      when:
+        - nova_helm_result is defined
+        - nova_helm_result is succeeded
+        - (nova_info.status.revision | default(0) | int) > 1
+      changed_when: true
+
+    - name: Échec explicite (stoppe la promotion)
+      ansible.builtin.fail:
+        msg: "Déploiement invalide sur {{ env_name }} : retour à l'état précédent, promotion stoppée."
