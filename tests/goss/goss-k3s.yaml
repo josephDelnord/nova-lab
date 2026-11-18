@@ -1,0 +1,36 @@
+# Conformité de la couche Kubernetes : valeurs attendues injectées depuis l'inventaire
+service:
+  k3s: { enabled: true, running: true }
+
+command:
+  node_ready:
+    exec: "k3s kubectl get nodes --no-headers"
+    exit-status: 0
+    stdout: ["Ready"]
+  # L'API k3s ecoute 6443 : verification via ss, les tests "port" du support
+  # ne rendent pas compte des sockets wildcard (dualstack) de k3s.
+  api_port_listening:
+    exec: "ss -tln | grep -q ':6443 '"
+    exit-status: 0
+  # nombre de réplicas disponibles = valeur de l'inventaire
+  replicas_available:
+    exec: "k3s kubectl -n nova get deploy nova-hello -o jsonpath='{.status.availableReplicas}'"
+    exit-status: 0
+    stdout: ["{{ .Vars.replicas }}"]
+  # Le port 80 n'a PAS de socket hote : k3s (klipper-lb/svclb) l'expose par regles
+  # iptables DNAT. On teste le comportement (Traefik repond) et non le socket.
+  ingress_http:
+    exec: "curl -s -o /dev/null -w '%{http_code}' -H 'Host: {{ .Vars.hostname }}' http://127.0.0.1/"
+    exit-status: 0
+    stdout: ["200"]
+  # PSSI-09 : conteneur non privilégié, système de fichiers en lecture seule
+  readonly_rootfs:
+    exec: "k3s kubectl -n nova get deploy nova-hello -o jsonpath='{.spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem}'"
+    exit-status: 0
+    stdout: ["true"]{{ if eq .Vars.netpol "true" }}
+  # PSSI-08 : isolation reseau applicative exigee en production
+  networkpolicy_present:
+    exec: "k3s kubectl -n nova get networkpolicy nova-hello -o name"
+    exit-status: 0
+    stdout: ["networkpolicy"]
+{{ end }}
