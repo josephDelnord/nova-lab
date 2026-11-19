@@ -31,3 +31,8 @@ hardening_firewall_rules:
   - { port: 443, src: 192.168.56.1, comment: "HTTPS depuis le poste hôte" }
   - { port: 6443, src: 192.168.56.10, comment: "API Kubernetes depuis ctrl uniquement" }
 hardening_k3s_cidrs: ["10.42.0.0/16", "10.43.0.0/16"]   # pods et services k3s
+
+# PSSI-08 : isolement des environnements, APPLIQUE A LA SOURCE (chaîne OUTPUT de l'émetteur).
+# Raison : le port 80 prod est exposé par DNAT (klipper-lb) dont les règles précèdent
+# les chaînes FORWARD de ufw -> le filtrage entrant côté destination est court-circuité.
+hardening_deny_outbound: []             # IP de l'autre environnement, surchargée en group_vars

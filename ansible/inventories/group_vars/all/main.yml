@@ -5,3 +5,7 @@ nova_namespace: nova
 nova_app_version: "1.0.0"                    # semver à 3 chiffres (jamais "1.1")
 nova_image_repository: nginxinc/nginx-unprivileged
 nova_image_tag: "1.27-alpine"                # jamais "latest" (le schéma Helm le refuse)
+
+# Acces et identites (TP14)
+access_users: []                  # surcharge par environnement
+hardening_ssh_allow_groups: [ops] # SSH reserve au groupe ops

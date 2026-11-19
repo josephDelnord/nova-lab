@@ -5,3 +5,5 @@ docs/
 ansible/.vault_pass_*
 *.retry
 *.log
+.continue/
+nul

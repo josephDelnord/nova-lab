@@ -5,3 +5,5 @@ nova_hostname: hello.preprod.nova.local
 nova_greeting: "Hello NOVA — Préprod"
 nova_network_policy: false
 nova_api_token: "{{ vault_nova_api_token }}"
+access_users: [alice, bob]
+hardening_deny_outbound: ["192.168.56.22"]   # preprod ne parle pas a prod

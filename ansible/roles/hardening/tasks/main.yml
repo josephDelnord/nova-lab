@@ -106,6 +106,16 @@
   when: hardening_firewall_enabled | bool
   tags: [firewall]
 
+- name: Pare-feu | PSSI-08 | refuser l'émission vers l'autre environnement (filtrage à la source)
+  community.general.ufw:
+    rule: deny
+    direction: out
+    to_ip: "{{ item }}"
+    comment: "isolation preprod/prod (PSSI-08)"
+  loop: "{{ hardening_deny_outbound }}"
+  when: hardening_firewall_enabled | bool
+  tags: [firewall]
+
 - name: Pare-feu | politique par défaut entrante = refuser
   community.general.ufw:
     default: deny
