@@ -1,4 +1,4 @@
-# Architecture nova-lab (TP15 — dossier de rendu)
+# Architecture nova-lab
 
 ## Vue d'ensemble
 

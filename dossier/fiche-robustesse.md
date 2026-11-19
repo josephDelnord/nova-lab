@@ -67,7 +67,7 @@ ansible-playbook playbooks/deploy.yml --limit prod -e nova_require_approval=fals
 
 - **Leçon** : *la rotation est un script (`scripts/rotate-token.sh`), pas une procédure : elle rejouable, le secret ne transite jamais en clair dans le dépôt (tmp local, shred), le re-chiffrement utilise l'identité Vault de l'environnement ciblé*.
 
-## Récapitulatif pour la soutenance
+## Récapitulatif
 
 | Thème | Preuve à montrer |
 |---|---|
