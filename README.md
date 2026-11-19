@@ -86,7 +86,6 @@ nova-lab/
 
 - **VirtualBox** installé sur Windows (visible depuis WSL2)
 - **Vagrant** installé (sur Windows ou dans WSL2)
-- **WSL2** configuré avec Ubuntu
 - **Git** installé
 
 ### 2️⃣ **Lancer les VM**

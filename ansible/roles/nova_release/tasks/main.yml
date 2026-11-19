@@ -26,7 +26,11 @@
         create_namespace: true
         kubeconfig: "{{ nova_kubeconfig }}"
         wait: true
-        wait_timeout: 3m
+        # 15 min : le PREMIER pull d'image sur un lab reconstruit from scratch
+        # (reseau campus lent) doit rentrer dans la fenetre d'attente ; le cas
+        # nominal reutilise le cache local et rend la main en quelques secondes.
+        # Format Go duration OBLIGATOIRE ("15m", pas "900" — Helm refuse).
+        timeout: 15m
         atomic: true
         values: "{{ lookup('ansible.builtin.template', 'values.yaml.j2') | from_yaml }}"   # types préservés (entiers, booléens)
       register: nova_helm_result

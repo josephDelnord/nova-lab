@@ -19,7 +19,7 @@ hardening_sysctl:
   fs.suid_dumpable: 0
 
 hardening_blacklisted_modules: [cramfs, freevxfs, hfs, hfsplus, usb-storage]
-hardening_removed_packages: [telnet, rsh-client, nis]
+hardening_removed_packages: [telnet, rsh-client, nis, apport, whoopsie]
 
 # --- PSSI-05 : filtrage réseau en liste blanche ---
 hardening_firewall_enabled: true

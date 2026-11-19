@@ -21,6 +21,16 @@
   tags: [ssh]
 
 # ---------- Noyau (PSSI-02) ----------
+- name: MCS | neutraliser apport (réarme fs.suid_dumpable=2 à chaque boot, conflit CIS)
+  # Le service apport d'Ubuntu écrit fs.suid_dumpable=2 au démarrage pour
+  # collecter les cores des binaires setuid — il défait notre durcissement
+  # après chaque reboot. Sur un serveur, CIS recommande de s'en passer.
+  ansible.builtin.systemd:
+    name: apport.service
+    enabled: false
+    state: stopped
+  failed_when: false          # le paquet peut être absent : rien à neutraliser
+
 - name: Noyau | paramètres sysctl durcis
   ansible.posix.sysctl:
     name: "{{ item.key }}"

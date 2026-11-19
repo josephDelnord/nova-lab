@@ -21,6 +21,16 @@ else
 fi
 
 echo ">>> [3/3] Python 3 (requis par les modules Ansible sur les nœuds gérés)"
+# Miroirs apt : certains réseaux (campus) bloquent le HTTP sortant (port 80)
+# tout en laissant passer le HTTPS. Test non bloquant ; si 80 est muet, on
+# bascule les sources vers le miroir kernel.org, en HTTPS (même contenu).
+if ! timeout 3 bash -c 'echo > /dev/tcp/us.archive.ubuntu.com/80' 2>/dev/null; then
+  echo ">>> port 80 sortant bloque (reseau local ?) : miroirs apt -> HTTPS kernel.org"
+  sed -i \
+    -e 's|http://us.archive.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' \
+    -e 's|http://security.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' \
+    /etc/apt/sources.list
+fi
 apt-get update -qq
 apt-get install -y -qq python3 python3-pip
 
